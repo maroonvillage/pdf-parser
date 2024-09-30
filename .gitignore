@@ -161,5 +161,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 .DS_Store
-docs/AI_Risk_Management-NIST.AI.100-1.pdf
-docs/extracted_pdf_text.txt
+docs/*.txt
+docs/*.pdf
