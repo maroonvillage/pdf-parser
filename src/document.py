@@ -32,6 +32,13 @@ class Document:
     def add_section(self, section):
         self.sections.append(section)
 
+    # Method to find a section by title
+    def find_section_by_heading(self, heading):
+        for section in self.sections:
+            if section.heading.startswith(heading):
+                return section
+        return None  # If no section with the given title is found
+    
     def to_dict(self):
         return {
             "title": self.title,
