@@ -6,6 +6,7 @@ from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
+from pdfminer.pdftypes import resolve1
 from io import StringIO
 
 import os
@@ -18,9 +19,6 @@ from matcher_patterns import *
 from file_util import read_lines_into_list, write_document_loader_docs_to_file, save_file, save_to_json_file
 
 from document import Document, Section, Figure, Table
-
-#from pdf_parser_langchain import *
-
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -81,20 +79,37 @@ def parse_appendices(text):
 
     return document
 
+def get_outline_page_no(pages, dest):
+        page_num = 0
+        # Resolve the destination to get the page object
+        dest = resolve1(dest)
+        if isinstance(dest, dict) and 'Page' in dest:
+            page_obj = dest['Page']
+            # Find the corresponding page number
+            page_num = next((i + 1 for i, p in enumerate(pages) if p == page_obj), None)
+            
+            print(f"Page Number: {page_num}")
 
+        return  page_num
 
 def extract_toc(pdf_path, output_path=''):
+
     with open(pdf_path, 'rb') as fp:
         parser = PDFParser(fp)
         document = PDFDocument(parser)
-        outlines = document.get_outlines()
-        for (level, title, dest, a, se) in outlines:
-            print(f'Level: {level}, Title: {title}, dest: {dest}, a: {a}, se: {se}')
 
-            """ if(output_path != None):
-                with open(output_path, 'w') as file:
-                    for (level, title, dest, a, se) in outlines:
-                        file.write(f'{title}\n') """
+        #Get pages 
+        #pages = list(PDFPage.get_pages(fp))
+        outlines = document.get_outlines()
+
+        if(output_path != ''):
+            with open(output_path, 'w') as file:
+                for (level, title, dest, a, se) in outlines:
+                    file.write(f'{title}\n') 
+                    print(f'Level: {level}, Title: {title}, dest: {dest}, a: {a}, se: {se}')
+        else:
+            print('No output path!')
+                        
         
 
 def extract_text_from_pdf_lanchain(pdf_path):
@@ -143,7 +158,6 @@ def extract_text_from_pdf(pdf_path):
 
         return text
     
-
 def extract_text_by_page(pdf_path):
     with open(pdf_path, 'rb') as file:
         parser = PDFParser(file)
@@ -163,7 +177,6 @@ def extract_text_by_page(pdf_path):
             text = output_string.getvalue()
             print(f"Page {page_number}:\n{text}")
             device.close()
-
 
 def find_chapters(text):
     # Regular expressions for detecting chapters, sections, and figures
@@ -204,7 +217,6 @@ def find_sections(text, matching_groups=False):
     #print(sections)
     return sections
 
-
 def find_figures(text):
     # Regular expressions for detecting chapters, sections, and figures
     figure_pattern = r"^Figure\s\d+|Fig\.\s\d+"
@@ -243,8 +255,6 @@ def find_page_number(text):
     page_no = re.findall(page_no_pattern, text)
 
     return page_no
-
-
 
 def is_end_of_sentence(text):
     sentence_endings = ('.', '?', '!', ')')
@@ -565,6 +575,32 @@ def extract_figures(txt_path, output_file, lines_list):
     save_to_json_file(document_json.to_json(), json_ouput_file)
 
 
+def convert_pdf_to_json(txt_path, output_file, lines_list, nlp):
+
+    print('Hello, world.')
+
+    #Use PDFDocument, PDFPage, etc. to parse PDF
+
+    #Use layout to get content from PDF document ...
+
+    #All content in PDF document is in TextBoxes
+
+    #Steps to handle content in TextBoxes 
+
+    #1. Look for Headings or Figures or Appendicies or Tables
+
+    #2. Headings
+    #   Search for heading string in Textbox
+    #   If the heading is by itself -> Add to JSON document under 'heading' key
+    #   Continue iterating through textboxes -> Add subsequent paragraphs under the heading until the next heading, figure or table is encountered
+    #   If heading is followed by more text --> split the heading out of the textbox content 
+    #   Continue iterating through textboxes -> Add subsequent paragraphs under the heading until the next heading, figure or table is encountered 
+    #   If Fig is found --> Add to figures under current section.
+    #   Check for the position and size of the text box as an indication of the presence of a table
+    #   Check for a label (e.g. Table 1, Table A, etc.) and a caption
+    #   If a textbox width is a fraction of the width of the page, It is most-likely a textbox in a table
+    #   look a the position of the text, it may be the first column from the left or it may be just to the right of the previous column
+    
 
 def main():
 
@@ -590,7 +626,7 @@ def main():
     #output_file = 'data/output/parse_pdf_iso_output.txt'
 
     #toc_ouput_file = 'docs/iso_iec_toc.txt'
-    toc_ouput_file = 'docs/ai_rmf_toc.txt'
+    toc_ouput_file = 'docs/ai_rmf_toc_test.txt'
 
     json_ouput_file = 'data/output/ai_rmf_json.json'
 
@@ -609,22 +645,15 @@ def main():
 
     #Extract Table of Contents ...
     extract_toc(pdf_path, toc_ouput_file)
-
-    ##################################################################################
-    # PDF Miner Extraction
-    ##################################################################################
+    #extract_toc(pdf_path, '')
 
 
-    #extract_text_line_by_line_pdfminer(pdf_path)
-
-    ##################################################################################
-
-    #sys.exit()
 
     #Capture list of lines from Table of Contents
     lines_list = read_lines_into_list(toc_ouput_file)
-    #print(lines_list)
+    print(lines_list)
 
+    sys.exit()
 
     extract_paragraphs(txt_path, output_file, lines_list, nlp)
 
@@ -632,110 +661,9 @@ def main():
 
     #extract_figures(txt_path, 'data/output/parse_pdf_rmf_figure_output.txt', lines_list)
 
-
     sys.exit()
 
-    #Define variables ...
-    my_dict = {}
-
-    
-
-    section_str = ""
-    paragraph = ""
-    figure = ""
-    found_match = False
-    found_section = False
-    found_figure = False
-    found_table = False
-    found_appendix = False
-    found_page_no = False
-    found_empty_line = False
-    is_paragraph_complete = False
-
-    paragraphs = []
-    figures = []
-
-    current_section = None
-    current_figure = None
-
-    #Get TOC dictionary ...
-    my_dict = create_toc_dictionary(lines_list)
-
-    document_json = Document("ai_rmf_extracted_text_json.json")
-
-    with open(output_file, 'w') as wfile:
-        with open(txt_path, 'r') as file:
-            # Read and print each line one by one
-            for line in file:
-                stripped_line = line.lstrip().rstrip() #remove leading and trailing spaces from string while preserving newline characters
-                #wfile.write(f'{stripped_line}\n')
-                doc  = nlp(stripped_line)
-                matches = matcher(doc)
-                if matches:
-                    wfile.write(f'MATCHES: {stripped_line}\n')
-                    current_section = None
-                    section_str = stripped_line
-                    current_section = document_json.find_section_by_heading(section_str)
-                    if(document_json.find_section_by_heading(section_str) == None):
-                        current_section = Section(section_str)
-                        document_json.add_section(current_section)
-                        found_match = True
-                if(find_sections(stripped_line) != []):
-                    #print(f'Found section: {stripped_line}')
-                    current_section = None
-                    section_match = None
-                    section_match = find_section(stripped_line,matching_groups=True)
-                    if (section_match != None):
-                        # A section header was found.
-                        # Determine that the header is in the dictionary of headers
-                        match_str = section_match.group(2)
-                        wfile.write(f'{match_str}\n')
-                        if(match_str.strip() in my_dict):
-                            #Add header to document object
-                            section_str = stripped_line
-                            wfile.write(f'SECTION {section_str}\n')
-                            current_section = document_json.find_section_by_heading(section_str)
-                            if(document_json.find_section_by_heading(section_str) == None):
-                                current_section = Section(section_str)
-                                document_json.add_section(current_section)
-                                found_section = True
-
-                elif(find_figures(stripped_line) != []):
-                    wfile.write(f'FIGURE: {stripped_line}\n')
-                    #figure += stripped_line
-                    found_figure = True
-                elif(find_appendicies(stripped_line) != []):
-                    wfile.write(f'APPENDIX: {stripped_line}\n')
-                    current_section = None
-                    #Check for Appendix section in json document
-                    section_str = stripped_line
-                    current_section = document_json.find_section_by_heading(section_str)
-                    if(current_section == None):
-                            current_section = Section(section_str)
-                            document_json.add_section(current_section)
-
-
-                    found_appendix = True
-                elif(find_page_number(stripped_line) != []):
-                    wfile.write(f'Found: {stripped_line}\n')
-                elif(stripped_line == ''):
-                    wfile.write("found empty line\n")
-                    #Check for captured paragraph
-                    if(paragraph != ''):
-                        if(current_section != None):
-                            current_section.add_paragraph(paragraph)
-                        else:
-                            current_section = Section(section_str)
-                            current_section.add_paragraph(paragraph)
-                        paragraph = ''
-                else:
-                    wfile.write(f'{stripped_line}\n')
-                    paragraph += f'{stripped_line}\n'
-
-
-    #dict1 = document_json.to_dict()[]
-    #print(document_json.to_json())
-
+   
     save_to_json_file(document_json.to_json(), json_ouput_file)
 
     sys.exit()
@@ -745,86 +673,5 @@ def main():
 
     ############################################################################
     
-
-
-    with open('docs/ai_playbook_extracted_text.txt', 'r') as file:
-        # Read and print each line one by one
-        for line in file:
-            stripped_line = line.lstrip().rstrip() #remove leading and trailing spaces from string while preserving newline characters
-            doc = nlp(stripped_line)
-            matches = matcher(doc)
-            if matches:
-                print(f'MATCHES: {stripped_line}\n')
-                found_match = True
-            if(find_sections(stripped_line) != []):
-                #print(f'Found section: {stripped_line}')
-                section_match = find_section(stripped_line,matching_groups=True)
-
-                if (section_match != None):
-                    #print(f'FOUND: {section_match.group(1)}, {section_match.group(2)}')
-                    # A section header was found.
-                    # Determine that the header is in the dictionary of headers
-                    match_str = section_match.group(2)
-                    #print(f"Match group 2: '{match_str.strip()}'")
-                    if(match_str.strip() in my_dict):
-                        section_str = stripped_line
-                        print(f'SECTION {section_str}\n')
-                        found_section = True
-            elif(find_figures(stripped_line) != []):
-                print(f'FIGURE: {stripped_line}\n')
-                figure += stripped_line
-                found_figure = True
-            elif(find_tables(stripped_line) != []):
-                #print(f'TABLE: {stripped_line}')
-                found_table =  True
-            elif(find_appendicies(stripped_line) != []):
-                print(f'APPENDENDIX: {stripped_line}\n')
-                found_appendix = True
-            #elif(find_page_number(stripped_line) != ""):
-                #print(f'{stripped_line}\n')
-                
-            else:
-                #print("This is a paragraph.")
-                #print(stripped_line)
-                if(stripped_line == ""):
-                    print("[Empty Line Found]\n")
-                    if(found_match or found_section):
-                        #Instantiate a section object 
-                        print("Found a section heading.\n")
-                        print(section_str)
-                        found_match = False
-                        found_section = False
-                    elif(found_table):
-                        #print("Found a table.")
-                        found_table = False
-                    elif(found_appendix):       
-                        print("Found an appendix.\n")
-                        found_appendix = False
-                    elif(figure != None and found_figure):
-                        print("Add figure text to figure list in JSON.\n")
-                        if(is_end_of_sentence(figure)):
-                            figures.append(figure)
-                            print(f'{figure}\n')
-                            figure = ""
-                            found_figure = False
-                    elif(paragraph != None):
-                        if(is_end_of_sentence(paragraph)):
-                            #Add paragraph to the list of paragraphs
-                            paragraphs.append(paragraph)
-                            print(f'{paragraph}\n')
-                            paragraph = ""
-                        #else:
-                            #Set a flag that indicates that the end of the paragraph has not been reached.
-                        #    is_paragraph_complete = False                  
-                else:
-                    if(found_figure):
-                        figure += stripped_line
-                    else:
-                        paragraph += stripped_line
-                    
-
-    #print("Extracting tables ...")                
-    #extract_tables()
-
 if __name__ == "__main__":
     main() 
