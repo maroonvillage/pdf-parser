@@ -6,7 +6,7 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
-
+import os
 
 
 #from pdfminer.high_level import extract_pages
@@ -86,7 +86,7 @@ def detect_tables(pdf_file_path):
 
     try:
         if(pdf_file_path != ''):
-            with open('table_detect_ouput.txt', 'w') as wfile:
+            with open('table_detect_rmf_ouput.txt', 'w') as wfile:
                 with open(pdf_file_path, 'rb') as file:
                     parser = PDFParser(file)
                     pdf_document = PDFDocument(parser)
@@ -110,6 +110,7 @@ def detect_tables(pdf_file_path):
                             # Parse each page layout for structured data like tables here
                             for element in layout:
                                 if isinstance(element, LTTextBoxHorizontal):
+                                    
                                     print("TextBox:", element.get_text())
                                     x0, y0, x1, y1 = element.bbox
                                     width = x1 - x0
@@ -178,14 +179,28 @@ def main():
     print('Hello, world from main!')
 
         # Path to your PDF file
-    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    #pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
 
     #pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
 
-    detect_tables(pdf_path)
+    #detect_tables(pdf_path)
 
     #extract_pdf_pages(pdf_path)
 
+
+
+    # Specify the directory you want to open
+    directory = '../data/output'
+
+    files =  os.listdir(directory)
+    # Filter the list to include only JSON files 
+    sorted_files = [f for f in files if f.endswith('.json')]
+
+    # Sort the list alphanumerically
+    sorted_files.sort()
+
+    for filename in sorted_files: 
+        print(filename) 
 
 
 
