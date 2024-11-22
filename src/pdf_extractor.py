@@ -3,10 +3,12 @@ import sys
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import TextConverter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams
+from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
+    LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTComponent, LTContainer
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdftypes import resolve1
+from pdfminer.converter import PDFPageAggregator
 from io import StringIO
 
 import os
@@ -16,7 +18,7 @@ import spacy
 from matcher_patterns import *
 
 
-from file_util import read_lines_into_list, write_document_loader_docs_to_file, save_file, save_to_json_file
+from file_util import read_lines_into_list, write_document_loader_docs_to_file, save_file, save_to_json_file, generate_filename
 
 from document import Document, Section, Figure, Table
 
@@ -202,8 +204,8 @@ def find_sections(text, matching_groups=False):
     #sections_pattern = r"(\d+\.{1}(\d*)(\.\d+)*\s+[A-Z][\w\W\s]+)"
     #sections_pattern = r"\d+\.{1}(\d+)*(\.\d+)*\s+[A-Za-z][\w\s\-\(\)\:\,]+"
     #sections_pattern = r"(?:\d+\.{1})(?:\d+)*(?:\.\d+)*\s+[A-Za-z][\w\s\-\(?:\)\:\,]+"
-    sections_pattern = r"(?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*\s+[A-Za-z][\w\s\-\,]+"
-    section_pattern_with_matching_groups = r"((?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*)(\s+[A-Za-z][\w\s\-\,]+)"
+    sections_pattern = r"^(?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*\s+[A-Za-z][\w\s\-\,]+"
+    section_pattern_with_matching_groups = r"^((?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*)(\s+[A-Za-z][\w\s\-\,]+)"
     sections = []
 
      # Find sections
@@ -575,93 +577,258 @@ def extract_figures(txt_path, output_file, lines_list):
     save_to_json_file(document_json.to_json(), json_ouput_file)
 
 
-def convert_pdf_to_json(txt_path, output_file, lines_list, nlp):
+def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_list, nlp):
 
-    print('Hello, world.')
+    print('Inside convert_pdf_to_json ... the path is: {pdf_file_path}')
 
-    #Use PDFDocument, PDFPage, etc. to parse PDF
+    try:
 
-    #Use layout to get content from PDF document ...
+        #json_ouput_file = 'data/output/ai_rmf_extracted_json.json'
+        document_json = Document(output_json_path)
 
-    #All content in PDF document is in TextBoxes
+        #Initialize JSON document with section headers ...
+        for line in lines_list:
+             document_json.add_section(Section(line))
 
-    #Steps to handle content in TextBoxes 
+        current_section_header = ''
+        #Matcher is used to find headings that may not have been captured in the table of contents
+        matcher = get_matcher(nlp)
 
-    #1. Look for Headings or Figures or Appendicies or Tables
+        #Get TOC dictionary ...
+        my_dict = create_toc_dictionary(lines_list)
 
-    #2. Headings
-    #   Search for heading string in Textbox
-    #   If the heading is by itself -> Add to JSON document under 'heading' key
-    #   Continue iterating through textboxes -> Add subsequent paragraphs under the heading until the next heading, figure or table is encountered
-    #   If heading is followed by more text --> split the heading out of the textbox content 
-    #   Continue iterating through textboxes -> Add subsequent paragraphs under the heading until the next heading, figure or table is encountered 
-    #   If Fig is found --> Add to figures under current section.
-    #   Check for the position and size of the text box as an indication of the presence of a table
-    #   Check for a label (e.g. Table 1, Table A, etc.) and a caption
-    #   If a textbox width is a fraction of the width of the page, It is most-likely a textbox in a table
-    #   look a the position of the text, it may be the first column from the left or it may be just to the right of the previous column
-    
+        start_page = 5
+
+        line_count = 0
+
+        if(pdf_file_path != ''):
+            with open(output_txt_path, 'w') as wfile:
+                with open(pdf_file_path, 'rb') as file:
+                    parser = PDFParser(file)
+                    pdf_document = PDFDocument(parser)
+
+                    parser.set_document(pdf_document) #associates the PDF file with the parser
+                    if pdf_document.is_extractable:
+                        # Set up PDF resources and interpreter
+                        resource_manager = PDFResourceManager()
+                        laparams = LAParams()
+                        device = PDFPageAggregator(resource_manager, laparams=laparams)
+                        interpreter = PDFPageInterpreter(resource_manager, device)
+
+                        # Get the total number of pages in the document 
+                        total_pages = len(list(PDFPage.create_pages(pdf_document))) 
+                        # Create a set of page numbers from start_page to the last page 
+                        page_numbers = set(range(start_page,total_pages))
+
+                        for page_number, page in enumerate(PDFPage.get_pages(file, pagenos=page_numbers)):
+                            interpreter.process_page(page)
+                            layout = device.get_result()  # Layout contains parsed page content
+                            print(f'PageId: {page.pageid}\n')
+                            print(f'Page Number: {page_number}\n')
+                            wfile.write(f'PageId: {page.pageid} Page Number: {page_number}\n')
+                            wfile.write(f'This dimensions for this page are: {layout.height} height, {layout.width} width\n')
+                            # Parse each page layout for structured data like tables here
+                            for element in layout:
+                                first_line = []
+                                if isinstance(element, LTTextBoxHorizontal):
+                             
+                                    textbox_content = element.get_text().lstrip().rstrip()
+                                    
+                                    if(textbox_content != ''):
+                                        content_lines_list = textbox_content.split('\n')
+                                        first_line = content_lines_list[0]
+                                        line_count = len(content_lines_list)
+
+                                    x0, y0, x1, y1 = element.bbox
+                                    width = x1 - x0
+                                    height = y1 - y0
+                                    #wfile.write(f"TextBox: {element.get_text()} -> ({element.x0} ,{element.y0}) ({element.x1} ,{element.y1}) - {element.bbox}\n")
+                                    wfile.write(f"TextBox Content: {textbox_content}\n")
+
+                                    #A text box will be a section header alone, a section header followed by a paragraph 
+                                    # (typically, the first paragraph just after the section header), or a paragraph alone.
+                                    # The same applies to a Fig. caption
+
+                                    #Each time a text box is encountered, examine the content.
+                                    #Check for the possibilities listed above ...
+                                    #If a section heading is found append a new section with the corresponding header name 
+                                    #  Remove the heading and append the paragraph to the list of paragraphs
+                                    #Once the 'current heading' variable is set, you will check it upon encountering each text box
+                                    #If the 'current heading' variable is empty, this means it is the first section heading 
+                                    #encountered.
+                                    #If the 'current heading' variable differs from the one found upon a dictionary lookup
+                                    #this means that a new section heading has been reached and a new section must be added to the JSON document.
+
+                                    #You will also look for Figure/Fig. followed by a caption which will be in the Textbox content.
+                                    #Since a Figure/Fig will be part of a section, it should always be true that the 'current heading' variable
+                                    #will contain a value before you encounter a Figure/Fig.  
+                                    doc  = nlp(first_line)
+                                    matches = matcher(doc)
+                                    found_sections = find_sections(first_line)
+                                    if(matches or found_sections != []):
+                                        current_section_header= first_line
+                                        wfile.write(f"Found section(s): {current_section_header} ... count {len(found_sections)} \n")
+                                        section_match = None
+                                        section_match = find_section(current_section_header,matching_groups=True)
+                                        if (section_match != None):
+                                            wfile.write(f"Section Match found: {section_match}\n")
+                                            if(section_match.group(2) != None):
+                                                group_match = section_match.group(2)
+                                                wfile.write(f'Group 2: -{group_match.lstrip().rstrip()}-')
+                                                current_section = document_json.find_section_by_heading(group_match.lstrip().rstrip())
+                                                #split textbox content to see if there is more than one element'
+                                                if(current_section != None):
+                                                    wfile.write(f'Found section object: {current_section}')
+                                                    current_section.heading = current_section_header
+                                            else:
+                                                 wfile.write(f"Group 2 NOT found.\n")
+                                        else:
+                                            current_section = document_json.find_section_by_heading(current_section_header)
+
+                                        if(line_count > 1):
+                                            #Add header to new section
+                                            if(current_section != None):
+                                                current_section.add_paragraph("\n".join(content_lines_list[1:]))
+                                        #else:
+                                            #Add header to new section and append first paragraph
+                                        #    wfile.write(f"The section was NOT the only textbox content : {textbox_content} line count {line_count} \n")
+                                        line_count = 0
+                                    elif(find_appendicies(first_line) != []):
+                                        
+                                        wfile.write(f"Found appendix {textbox_content}\n")
+                                        current_section_header= first_line
+                                        current_section = document_json.find_section_by_heading(current_section_header)
+                                        if(current_section != None):
+                                            current_section.add_paragraph("\n".join(content_lines_list[1:]))
+
+                                    elif(find_figures(first_line) != []):
+                                         
+                                         wfile.write(f"Found figure {textbox_content}\n")
+                                         if(current_section != None):
+
+                                            current_section.add_figure(Figure(textbox_content))
+                                    else:
+                                        if(current_section_header != ''):
+                                            print(f'The current section is: {current_section_header}')
+                                            
+                                            current_section = document_json.find_section_by_heading(current_section_header)
+                                            if(current_section != None):
+                                                current_section.add_paragraph(textbox_content)
+
+                                    
+
+                                elif isinstance(element, LTTextLineHorizontal):
+                                    print("TextLine:", element.get_text())
+                                    wfile.write(f"TextLine: {element.get_text()}\n")
+                                elif isinstance(element, LTChar):
+                                    print(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}")
+                                    wfile.write(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}\n")
+                                elif isinstance(element, LTLine):
+                                    print(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})")
+                                    wfile.write(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})\n")
+                                elif isinstance(element, LTRect):
+                                    print(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})")
+                                    wfile.write(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})\n")
+                                elif isinstance(element, LTFigure):
+                                    print(f"Figure with width {element.width} and height {element.height}")
+                                    wfile.write(f"Figure with width {element.width} and height {element.height}\n")
+                                elif isinstance(element, LTImage):
+                                    print("Image found with size:", element.srcsize)
+                                    wfile.write(f"Image found with size: {element.srcsize} \n")
+                                elif isinstance(element, LTTextLineVertical):
+                                    print("Vertical line found:", element.get_text())
+                                    wfile.write(f"Vertical line found: {element.get_text()} \n")
+                                elif isinstance(element, LTTextGroup):
+                                    print("Text Group found:", element.get_text())
+                                    wfile.write(f"Text Group found: {element.get_text()} \n")
+                                elif isinstance(element, LTContainer):
+                                    print(f"Found CONTAINER ... {element.bbox}")
+                                    wfile.write(f"Found CONTAINER ... {element.bbox}\n")
+                                elif isinstance(element, LTTextGroupTBRL):
+                                    print(f"Found Text Group TBRL ... {element.bbox}")
+                                    wfile.write(f"Found Text Group TBRL ... {element.bbox}\n")
+
+                    else:
+                        print("The document is encrypted and cannot be parsed.")
+
+            save_to_json_file(document_json.to_json(), output_json_path)
+        else:
+            print('The path is empty!')
+    except FileNotFoundError: # Code to handle the exception 
+        print("There is no file or the path is incorrect!")
 
 def main():
+
 
     nlp = spacy.load('en_core_web_sm')
     matcher = Matcher(nlp.vocab)
 
-    #figure_list = get_figure_pattern()
+    input_folder = 'docs'
+    output_folder = 'data/output'
 
-    #for pattern in figure_list:
-    #    matcher.add("FigureMethods", [pattern])  
+    pdf_file_name = 'AI_Risk_Management-NIST.AI.100-1.pdf'
+
+    
+    pdf_prefix = pdf_file_name[:3]
 
     # Path to your PDF file
-    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    pdf_path =  os.path.join(input_folder, pdf_file_name)
 
-    #pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
+    parsed_pdf_txt_file_name = generate_filename(f'{pdf_prefix}_extracted')
+    parsed_pdf_txt_path = os.path.join(output_folder, parsed_pdf_txt_file_name)
 
-    txt_path = 'docs/ai_rmf_extracted_pdf_text2.txt'
+    pdfminer_txt_file_name = generate_filename(f'{pdf_prefix}_pdfminer_extract')
+    pdfminer_txt_path = os.path.join(output_folder, pdfminer_txt_file_name)
 
-    #txt_path = 'docs/iso_iec_extracted_pdf_text2.txt'
+    toc_ouput_file_name = generate_filename(f'{pdf_prefix}_TOC')
+    toc_output_path = os.path.join(output_folder, toc_ouput_file_name)
 
-    output_file = 'data/output/parse_pdf_rnmf_output.txt'
+    json_ouput_file_name = generate_filename(f'{pdf_prefix}_json_output',extension="json")
+    json_output_path = os.path.join(output_folder, json_ouput_file_name)
 
-    #output_file = 'data/output/parse_pdf_iso_output.txt'
+    print(parsed_pdf_txt_path)
+    print(pdfminer_txt_path)
+    print(toc_output_path)
+    print(json_output_path)
 
-    #toc_ouput_file = 'docs/iso_iec_toc.txt'
-    toc_ouput_file = 'docs/ai_rmf_toc_test.txt'
 
-    json_ouput_file = 'data/output/ai_rmf_json.json'
+    #sys.exit()
 
     text = ''
 
     # Check if the PDF text file exists
-    if not os.path.exists(txt_path):
-        print(f'The file {txt_path} does NOT exists.')
+    if not os.path.exists(parsed_pdf_txt_path):
+        print(f'The file {parsed_pdf_txt_path} does NOT exists.')
         #Extract text from PDF ...
         #docs = extract_text_pypdf(pdf_path)
         text = extract_text_from_pdf(pdf_path)
-        save_file(txt_path, text)
+        save_file(parsed_pdf_txt_path, text)
     else:
-        print(f'The file {txt_path} exists.')
+        print(f'The file {parsed_pdf_txt_path} exists.')
 
 
     #Extract Table of Contents ...
-    extract_toc(pdf_path, toc_ouput_file)
+    extract_toc(pdf_path, toc_output_path)
     #extract_toc(pdf_path, '')
 
 
 
     #Capture list of lines from Table of Contents
-    lines_list = read_lines_into_list(toc_ouput_file)
+    lines_list = read_lines_into_list(toc_output_path)
     print(lines_list)
+    
+    #TODO: Make this call correctly ...
+    convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp)
 
     sys.exit()
 
-    extract_paragraphs(txt_path, output_file, lines_list, nlp)
+    #extract_paragraphs(txt_path, output_file, lines_list, nlp)
 
     #extract_appendicies(txt_path, 'data/output/parse_pdf_rmf_appendicies_output.txt', lines_list)
 
     #extract_figures(txt_path, 'data/output/parse_pdf_rmf_figure_output.txt', lines_list)
 
-    sys.exit()
+  
 
    
     save_to_json_file(document_json.to_json(), json_ouput_file)
