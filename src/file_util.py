@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime
 
 def check_for_file(file_path):
 
@@ -54,3 +55,16 @@ def save_to_json_file(data, output_file):
     with open(output_file, 'w', encoding='utf-8') as file:
         #json.dump(data, file, ensure_ascii=False, indent=2)
         file.write(data)
+
+
+
+def generate_filename(base_name, extension="txt"):
+    # Get the current date and time
+    now = datetime.now()
+    # Format the date and time as a string (e.g., '2023-04-06_14-30-00')
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+    # Combine the base name, timestamp, and extension to form the file name
+    filename = f"{base_name}_{timestamp}.{extension}"
+    return filename
+
+
