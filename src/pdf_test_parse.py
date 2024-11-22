@@ -7,7 +7,7 @@ from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 import os
-
+from pdfminer.pdftypes import resolve1
 
 #from pdfminer.high_level import extract_pages
 #from pdfminer.layout import LTTextContainer, LTChar
@@ -86,7 +86,7 @@ def detect_tables(pdf_file_path):
 
     try:
         if(pdf_file_path != ''):
-            with open('table_detect_rmf_ouput.txt', 'w') as wfile:
+            with open('data/output/table_detect_rmf_ouput.txt', 'w') as wfile:
                 with open(pdf_file_path, 'rb') as file:
                     parser = PDFParser(file)
                     pdf_document = PDFDocument(parser)
@@ -111,14 +111,24 @@ def detect_tables(pdf_file_path):
                             for element in layout:
                                 if isinstance(element, LTTextBoxHorizontal):
                                     
-                                    print("TextBox:", element.get_text())
+                                    textbox_content = element.get_text()
+                                    print("TextBox:", textbox_content)
                                     x0, y0, x1, y1 = element.bbox
                                     width = x1 - x0
                                     height = y1 - y0
+
+                                    content_lines_list = textbox_content.split('\n')
+                                    first_line = content_lines_list[0]
+                                    line_count = len(content_lines_list)
+
+                                   
+                                    wfile.write(f'The first line of the text box is: {first_line}\n')
+                                    wfile.write(f'The number of lines in the text box is: {line_count}\n')
+                                    
                                     #wfile.write(f"TextBox: {element.get_text()} -> ({element.x0} ,{element.y0}) ({element.x1} ,{element.y1}) - {element.bbox}\n")
-                                    wfile.write(f"TextBox Content: {element.get_text()}\n")
+                                    wfile.write(f"TextBox Content: {textbox_content}\n")
                                     wfile.write(f"TextBox Position: ({x0}, {y0}), Width: {width}, Height: {height}\n")
-                                    print("TextBox Content:", element.get_text())
+                                    print("TextBox Content:", textbox_content)
                                     print(f"TextBox Position: ({x0}, {y0}), Width: {width}, Height: {height}")
                                 elif isinstance(element, LTTextLineHorizontal):
                                     print("TextLine:", element.get_text())
@@ -174,12 +184,52 @@ def extract_pdf_pages(pdf_file_path):
     except FileNotFoundError: # Code to handle the exception 
         print("There is no file or the path is incorrect!")
 
+
+def extract_toc_test():
+
+    # Open the PDF file
+    fp = open('docs/AI_Risk_Management-NIST.AI.100-1.pdf', 'rb')
+    parser = PDFParser(fp)
+    document = PDFDocument(parser)
+
+    # Get the outlines
+    outlines = document.get_outlines()
+
+    # Process each outline entry
+    for level, title, dest, annotation_ref, struct_elem in outlines:
+       
+        print(f"Title: {title}")
+        if struct_elem:
+            print(f"Type: {struct_elem.get('Type')}")
+            print(f"Role: {struct_elem.get('S')}")
+            print(f"Page: {struct_elem.get('Pg')}")
+            print(f"ID: {struct_elem.get('ID')}")
+            print(f"Attributes: {struct_elem.get('A')}")
+            print(f"Children: {struct_elem.get('C')}")
+            print(f"MCID: {struct_elem.get('MCID')}")
+        if annotation_ref: 
+            annotation = resolve1(annotation_ref)
+            print(f"Type: {annotation.get('Subtype')}") 
+            print(f"Contents: {annotation.get('Contents')}") 
+            print(f"Author: {annotation.get('T')}") 
+            print(f"CreationDate: {annotation.get('CreationDate')}") 
+            print(f"ModificationDate: {annotation.get('M')}") 
+            print(f"Color: {annotation.get('C')}") 
+            print(f"Flags: {annotation.get('F')}")
+        if level:
+            print(f'Level: {level}')
+        if dest:
+            print(f'Destination: {dest}')
+        print('-' * 40)
+
+
+
 def main():
 
     print('Hello, world from main!')
 
-        # Path to your PDF file
-    #pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    # Path to your PDF file
+    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
 
     #pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
 
@@ -187,10 +237,24 @@ def main():
 
     #extract_pdf_pages(pdf_path)
 
+    #extract_toc_test()
 
+    test_str = """Hello, world this is a test!
+                """
+    
+    sentences  = test_str.split('\n')
 
+    print(len(sentences))
+
+    for sentence in sentences:
+        print(sentence)
+        #print()
+
+    print("\n".join(sentences[1:]))
+
+"""
     # Specify the directory you want to open
-    directory = '../data/output'
+    directory = 'data/output'
 
     files =  os.listdir(directory)
     # Filter the list to include only JSON files 
@@ -202,7 +266,7 @@ def main():
     for filename in sorted_files: 
         print(filename) 
 
-
+"""
 
 
 if __name__ == "__main__":
