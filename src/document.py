@@ -35,7 +35,7 @@ class Document:
     # Method to find a section by title
     def find_section_by_heading(self, heading):
         for section in self.sections:
-            if section.heading.startswith(heading):
+            if section.heading.endswith(heading):
                 return section
         return None  # If no section with the given title is found
     
