@@ -8,7 +8,7 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 import os
 from pdfminer.pdftypes import resolve1
-
+import spacy
 #from pdfminer.high_level import extract_pages
 #from pdfminer.layout import LTTextContainer, LTChar
 
@@ -86,7 +86,7 @@ def detect_tables(pdf_file_path):
 
     try:
         if(pdf_file_path != ''):
-            with open('data/output/table_detect_rmf_ouput.txt', 'w') as wfile:
+            with open('data/output/table_detect_iso_ouput.txt', 'w') as wfile:
                 with open(pdf_file_path, 'rb') as file:
                     parser = PDFParser(file)
                     pdf_document = PDFDocument(parser)
@@ -226,12 +226,29 @@ def extract_toc_test():
 
 def main():
 
+
+
     print('Hello, world from main!')
 
-    # Path to your PDF file
-    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    nlp = spacy.load('en_core_web_sm')
 
-    #pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
+    list_of_things = []
+
+    list_of_things.append("Hello")
+    list_of_things.append("world")
+    list_of_things.append("this is a test")
+    list_of_things.append("Goodbye")
+    #doc  = nlp(None)
+
+    my_str = "The day started out like every other day in October."
+
+    if("October" in my_str):
+        print("The sentence contained the token.")
+
+    # Path to your PDF file
+    #pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+
+    pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
 
     #detect_tables(pdf_path)
 
@@ -239,18 +256,18 @@ def main():
 
     #extract_toc_test()
 
-    test_str = """Hello, world this is a test!
-                """
+    test_str = """Hello,  world this is a  test!"""
     
-    sentences  = test_str.split('\n')
+    sentences  = test_str.split(' ')
 
-    print(len(sentences))
+    #print(len(sentences))
 
     for sentence in sentences:
-        print(sentence)
+        print(f'-{sentence}-\n')
         #print()
 
-    print("\n".join(sentences[1:]))
+    print(" ".join(sentences[0:]))
+
 
 """
     # Specify the directory you want to open
