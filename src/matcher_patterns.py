@@ -12,7 +12,7 @@ def get_executive_summary_patterns():
 
 def get_foreward_pattern():
 
-    executive_pattern = [{"LOWER": "foreward"}, {"OP": "?"}]
+    executive_pattern = [{"LOWER": "foreword"}, {"OP": "?"}]
     pattern_list = [executive_pattern]
 
     return pattern_list
