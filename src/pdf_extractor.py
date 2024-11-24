@@ -188,8 +188,8 @@ def find_chapters(text):
     chapters = re.findall(chapter_pattern, text)
 
 def find_section(text, matching_groups=False):
-    sections_pattern = r"(?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*\s+[A-Za-z][\w\s\-\,]+"
-    section_pattern_with_matching_groups = r"((?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*)(\s+[A-Za-z][\w\s\-\,]+)"
+    sections_pattern = r"^(?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*\s+[A-Za-z][\w\s\-\,]+"
+    section_pattern_with_matching_groups = r"^((?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*)(\s+[A-Za-z][\w\s\-\,]+)"
     
 
     if(matching_groups == True):
@@ -597,7 +597,7 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
         #Get TOC dictionary ...
         my_dict = create_toc_dictionary(lines_list)
 
-        start_page = 5
+        start_page = 3
 
         line_count = 0
 
@@ -629,7 +629,7 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                             wfile.write(f'This dimensions for this page are: {layout.height} height, {layout.width} width\n')
                             # Parse each page layout for structured data like tables here
                             for element in layout:
-                                first_line = []
+                                first_line = '' #[]
                                 if isinstance(element, LTTextBoxHorizontal):
                              
                                     textbox_content = element.get_text().lstrip().rstrip()
@@ -662,11 +662,13 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                                     #You will also look for Figure/Fig. followed by a caption which will be in the Textbox content.
                                     #Since a Figure/Fig will be part of a section, it should always be true that the 'current heading' variable
                                     #will contain a value before you encounter a Figure/Fig.  
+                                    print(f'############# First Line: {first_line}#######################\n')
                                     doc  = nlp(first_line)
                                     matches = matcher(doc)
                                     found_sections = find_sections(first_line)
+
                                     if(matches or found_sections != []):
-                                        current_section_header= first_line
+                                        current_section_header = first_line
                                         wfile.write(f"Found section(s): {current_section_header} ... count {len(found_sections)} \n")
                                         section_match = None
                                         section_match = find_section(current_section_header,matching_groups=True)
@@ -674,6 +676,8 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                                             wfile.write(f"Section Match found: {section_match}\n")
                                             if(section_match.group(2) != None):
                                                 group_match = section_match.group(2)
+                                                current_section_header = f'{section_match.group(1).strip()} {section_match.group(2).strip()}'
+                                                wfile.write(f'Group 1: -{section_match.group(1)}-')
                                                 wfile.write(f'Group 2: -{group_match.lstrip().rstrip()}-')
                                                 current_section = document_json.find_section_by_heading(group_match.lstrip().rstrip())
                                                 #split textbox content to see if there is more than one element'
@@ -766,8 +770,11 @@ def main():
     input_folder = 'docs'
     output_folder = 'data/output'
 
-    pdf_file_name = 'AI_Risk_Management-NIST.AI.100-1.pdf'
+    #pdf_file_name = 'ISO+IEC+23894-2023.pdf'
 
+    
+    pdf_file_name =  'AI_Risk_Management-NIST.AI.100-1.pdf'
+    #ISO+IEC+23894-2023
     
     pdf_prefix = pdf_file_name[:3]
 
