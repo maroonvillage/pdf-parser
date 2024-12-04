@@ -90,4 +90,31 @@ MATCH (policy:Keyword {name: 'Policy Development'}), (incident:Keyword {name: 'I
 CREATE (policy)-[:GUIDES]->(incident);
 
 MATCH (policy:Keyword {name: 'Policy Development'}), (landscape:Keyword {name: 'Regulatory Landscape'})
-CREATE (policy)-[:ADAP
+CREATE (policy)-[:ADAPTS_TO]->(landscape);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (benchmark:Keyword {name: 'Benchmarking'})
+CREATE (policy)-[:USES]->(benchmark);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (metrics:Keyword {name: 'Performance Metrics'})
+CREATE (policy)-[:DEFINES]->(metrics);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (adaptive:Keyword {name: 'Adaptive Compliance'})
+CREATE (policy)-[:ALIGN_WITH]->(adaptive);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (minimization:Keyword {name: 'Data Minimization'})
+CREATE (policy)-[:MANDATES]->(minimization);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (sensitivity:Keyword {name: 'Cultural Sensitivity'})
+CREATE (policy)-[:ENSURES]->(sensitivity);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (rights:Keyword {name: 'User Rights'})
+CREATE (policy)-[:PROTECTS]->(rights);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (algorithm_bias:Keyword {name: 'Algorithm Bias'})
+CREATE (policy)-[:ADDRESSES]->(algorithm_bias);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (standards:Keyword {name: 'Interoperability Standards'})
+CREATE (policy)-[:PROMOTES]->(standards);
+
+MATCH (policy:Keyword {name: 'Policy Development'}), (accountability_training:Keyword {name: 'Training Data Accountability'})
+CREATE (policy)-[:ENSURES]->(accountability_training);
