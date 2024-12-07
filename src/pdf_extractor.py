@@ -249,6 +249,14 @@ def find_appendicies(text):
     #print(appendicies)
     return appendicies
 
+def find_appendix(text):
+
+     # Regular expressions for detecting chapters, sections, and figures
+    #appendix_pattern = r"Appendix\s+[A-Z]\:"
+    appendix_pattern = r"Appendix\s+[A-Z]\:|Annex\s+[A-Z]\:?"
+
+    return re.match(appendix_pattern, text)
+
 def find_page_number(text):
 
     page_no_pattern = r"(?:Page|page|pg)\s(?:\d+|[ivx])+"
@@ -700,8 +708,20 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                                     elif(find_appendicies(first_line) != []):
                                         
                                         wfile.write(f"Found appendix {textbox_content}\n")
+                                        next_line = ''
+                                        wfile.write(f"Appendix pattern {find_appendix(first_line).group()}\n")
+                                        pattern_match = find_appendix(first_line).group()
+                                        if(pattern_match ==  first_line):
+                                            wfile.write(f"re match is equal to first line: {find_appendix(first_line).group()} {first_line}\n")
+                                            #Capture second line of textbox content and concatenate to end of first line
+                                            if(line_count > 1):
+                                                next_line = content_lines_list[1]
+                                                first_line = f'{first_line} {next_line.lstrip().rstrip()}'
+
                                         current_section_header= first_line
+                                        wfile.write(f"appendix wrapped across 2 lines: {next_line}\n")
                                         current_section = document_json.find_section_by_heading(current_section_header)
+
                                         if(current_section != None):
                                             current_section.add_paragraph("\n".join(content_lines_list[1:]))
 
