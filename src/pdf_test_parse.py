@@ -9,6 +9,8 @@ from pdfminer.converter import PDFPageAggregator
 import os
 from pdfminer.pdftypes import resolve1
 import spacy
+import re
+import sys
 #from pdfminer.high_level import extract_pages
 #from pdfminer.layout import LTTextContainer, LTChar
 
@@ -222,7 +224,13 @@ def extract_toc_test():
             print(f'Destination: {dest}')
         print('-' * 40)
 
+def find_appendix(text):
 
+     # Regular expressions for detecting chapters, sections, and figures
+    #appendix_pattern = r"Appendix\s+[A-Z]\:"
+    appendix_pattern = r"Appendix\s+[A-Z]\:|Annex\s+[A-Z]\:?"
+
+    return re.match(appendix_pattern, text)
 
 def main():
 
@@ -231,6 +239,19 @@ def main():
     print('Hello, world from main!')
 
     nlp = spacy.load('en_core_web_sm')
+
+
+    match = find_appendix("Appendix A: This is a test.")
+
+    # Display the match 
+    if match: 
+        print("Match found:") 
+        print(match.group()) 
+    else: 
+        print("No match found.")
+
+
+    sys.exit()
 
     list_of_things = []
 
