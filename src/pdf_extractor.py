@@ -16,9 +16,9 @@ import re
 
 import spacy
 from matcher_patterns import *
+from api_caller import call_api, upload_file
 
-
-from file_util import read_lines_into_list, write_document_loader_docs_to_file, save_file, save_to_json_file, generate_filename
+from file_util import read_lines_into_list, write_document_loader_docs_to_file, save_file, save_to_json_file, generate_filename, save_json_file
 
 from document import Document, Section, Figure, Table
 
@@ -783,16 +783,14 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
 
 def main():
 
-
     nlp = spacy.load('en_core_web_sm')
     matcher = Matcher(nlp.vocab)
+
+    base_url = 'http://localhost:8000/'
 
     input_folder = 'docs'
     output_folder = 'data/output'
 
-    #pdf_file_name = 'ISO+IEC+23894-2023.pdf'
-
-    
     pdf_file_name =  'AI_Risk_Management-NIST.AI.100-1.pdf'
     #ISO+IEC+23894-2023
     
@@ -812,6 +810,9 @@ def main():
 
     json_ouput_file_name = generate_filename(f'{pdf_prefix}_json_output',extension="json")
     json_output_path = os.path.join(output_folder, json_ouput_file_name)
+
+    json_table_output_file_name = generate_filename(f'{pdf_prefix}_json_table_output',extension="json")
+    json_table_output_path = os.path.join(output_folder, json_table_output_file_name)
 
     print(parsed_pdf_txt_path)
     print(pdfminer_txt_path)
@@ -833,39 +834,52 @@ def main():
     else:
         print(f'The file {parsed_pdf_txt_path} exists.')
 
+    try:
+        #Upload PDF file to container running Camelot
+        upload_file(f"{base_url}upload", pdf_path)
 
-    #Extract Table of Contents ...
-    extract_toc(pdf_path, toc_output_path)
-    #extract_toc(pdf_path, '')
+        #Extract Table of Contents ...
+        extract_toc(pdf_path, toc_output_path)
+
+        #Capture list of lines from Table of Contents
+        lines_list = read_lines_into_list(toc_output_path)
+        print(lines_list)
+        
+        #TODO: Make this call correctly ...
+        convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp)
+
+        #TODO: Automate process to determine the range of pages and the lattice or stream parameters of the API call ...
+        extract_response = call_api(f"{base_url}/extract2", f"uploaded_{pdf_file_name}/24-36/stream")
+
+        #Get file name of collated table data
+        if(extract_response.status_code == 200):
+            data = extract_response.json()
+            #Get file name as parameter for next request ...
+            file_name = data.get("filename")   
+
+            json_table_data = call_api("http://localhost:8000/get_tables", file_name)
+
+            if(json_table_data.status_code == 200):
+                print(json_table_data.json())
+
+            save_json_file(json_table_data.json(), json_table_output_path)
 
 
 
-    #Capture list of lines from Table of Contents
-    lines_list = read_lines_into_list(toc_output_path)
-    print(lines_list)
-    
-    #TODO: Make this call correctly ...
-    convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp)
+        #TODO: Convert resultant JSON to correct JSON format
+        #SKIP for now ... perform this step when converting JSON to CSV 
+        
+        #TODO: Add converted JSON to main JSON file 
 
-    sys.exit()
+        #TODO: Add embeddings to Pinecone
 
-    #extract_paragraphs(txt_path, output_file, lines_list, nlp)
+        #TODO: Iterate through nodes of Graph DB to query vector db
 
-    #extract_appendicies(txt_path, 'data/output/parse_pdf_rmf_appendicies_output.txt', lines_list)
+        #TODO: Retrieve JSON from Graph DB/ Vector query
 
-    #extract_figures(txt_path, 'data/output/parse_pdf_rmf_figure_output.txt', lines_list)
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-  
-
-   
-    save_to_json_file(document_json.to_json(), json_ouput_file)
-
-    sys.exit()
-    ############################################################################
-
-    ############################################################################
-
-    ############################################################################
     
 if __name__ == "__main__":
     main() 
