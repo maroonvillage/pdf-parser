@@ -1,6 +1,7 @@
 import os
 import json
 from datetime import datetime
+import docker
 
 def check_for_file(file_path):
 
@@ -56,7 +57,11 @@ def save_to_json_file(data, output_file):
         #json.dump(data, file, ensure_ascii=False, indent=2)
         file.write(data)
 
-
+def save_json_file(data, output_file):
+    """Save processed data to a JSON file."""
+    with open(output_file, 'w', encoding='utf-8') as file:
+        json.dump(data, file, ensure_ascii=False, indent=2)
+        #file.write(data)
 
 def generate_filename(base_name, extension="txt"):
     # Get the current date and time
@@ -68,3 +73,46 @@ def generate_filename(base_name, extension="txt"):
     return filename
 
 
+def download_file_from_container(container_name, container_directory, local_directory):
+
+    # Connect to the Docker client
+    client = docker.from_env()
+
+    # Name or ID of your Docker container
+    #container_name = "your_container_name"
+
+    # Directory in the Docker container containing the JSON files
+    #container_directory = "/path/to/json/files"
+
+    # Local directory to save the downloaded JSON files
+    #local_directory = "./downloaded_json_files"
+
+    # Create the local directory if it doesn't exist
+    os.makedirs(local_directory, exist_ok=True)
+
+    # Get the container
+    container = client.containers.get(container_name)
+
+    # List JSON files in the container directory
+    json_files = container.exec_run(f"ls {container_directory}").output.decode().splitlines()
+
+    # Download each JSON file
+    for json_file in json_files:
+        container_path = os.path.join(container_directory, json_file)
+        local_path = os.path.join(local_directory, json_file)
+        
+        # Copy the file from the container to the local directory
+        with open(local_path, "wb") as f:
+            bits, stat = container.get_archive(container_path)
+            for chunk in bits:
+                f.write(chunk)
+
+    print("JSON files downloaded successfully!")
+
+def get_files_from_dir(directory,extension='.json'):
+
+    files =  os.listdir(directory)
+    # Filter the list to include only JSON files 
+    filtered_files = [f for f in files if f.endswith(extension)]
+
+    return filtered_files
