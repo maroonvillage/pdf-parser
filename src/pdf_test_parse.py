@@ -1,4 +1,5 @@
 import json
+import os
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
     LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTComponent, LTContainer
@@ -6,7 +7,6 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
-import os
 from pdfminer.pdftypes import resolve1
 import spacy
 import re
@@ -14,8 +14,8 @@ import sys
 #from pdfminer.high_level import extract_pages
 #from pdfminer.layout import LTTextContainer, LTChar
 
-
-
+from api_caller import call_api, upload_file
+from file_util import download_file_from_container, generate_filename, save_to_json_file, get_files_from_dir
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -232,11 +232,148 @@ def find_appendix(text):
 
     return re.match(appendix_pattern, text)
 
+# Custom sorting function
+def alphanum_key(filename):
+    # Split the filename into parts (prefix and number)
+    parts = re.split(r'(\d+)', filename)
+    # Convert numeric parts to integers
+    return [int(part) if part.isdigit() else part for part in parts]
+
+
+
+
+def collate_output_tables(directory):
+
+    new_json_object = {"tables": []}
+
+    table_index = -1
+
+    table_label_current = ""
+    table_name_caption = ""
+
+    table_pattern = r"^\bTable\s\d+\b"
+
+    re_match = None
+
+
+    # Specify the directory you want to open
+    #directory = '.'
+    
+
+    files =  os.listdir(directory)
+    # Filter the list to include only JSON files 
+    filtered_files = [f for f in files if f.endswith('.json')]
+
+
+    sorted_filenames = sorted(filtered_files, key=alphanum_key)
+
+    # Loop through all the files in the directory 
+    # Files are sotred alphanumerically ...
+    for filename in sorted_filenames: 
+        # Create the full file path 
+        file_path = os.path.join(directory, filename) 
+        # Check if the file_path is a file (and not a directory) 
+        if os.path.isfile(file_path): 
+            if filename.endswith(".json"):
+                print(file_path)
+                with open(file_path, "r") as file:
+                    json_data = json.load(file)
+
+
+                    # Iterate through the list of dictionaries
+                    for idx, row in enumerate(json_data):
+                        print(row)
+                        for key, value in row.items():
+                            re_match = re.match(table_pattern, value)
+                        
+                        if(re_match != None):
+                            print(re_match)
+                            if(table_label_current != re_match.group(0)):
+                                table_label_current = re_match.group(0)
+                                table_name_caption = re_match.string
+                                new_json_object["tables"].append({"name": table_name_caption, "rows": []})
+                                table_index += 1
+                        else:
+                            if(table_label_current != ''):
+                                print(table_label_current)
+                                #no match found
+                                new_json_object["tables"][table_index]["rows"].append(row)
+
+
+    """Save processed data to a JSON file."""
+    file_name = generate_filename("final_tables","json")
+    output_file = f'data/output/{file_name}'
+    with open(output_file, 'w') as file:
+        json.dump(new_json_object, file, indent=4)
+        #file.write(new_json_object)
+
+    return new_json_object
+
+
 def main():
 
 
 
     print('Hello, world from main!')
+
+    test_files = get_files_from_dir('data/output/downloads',extension='.txt')
+
+    if(test_files != []):
+        print(test_files)
+    else:
+        print('Directory was empty.')
+
+    #'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    upload_file("http://localhost:8000/upload", "docs/AI_Risk_Management-NIST.AI.100-1.pdf")
+
+
+    json_response = call_api("http://localhost:8000/extract2", "uploaded_AI_Risk_Management-NIST.AI.100-1.pdf/24-36/stream")
+
+
+    if(json_response.status_code == 200):
+        data = json_response.json()
+        print(data)
+        #Get file name as parameter for next request ...
+
+        file_name = data.get("filename")
+
+        print(file_name)
+
+        json_table_data = call_api("http://localhost:8000/get_tables", file_name)
+
+        if(json_table_data.status_code == 200):
+            print(json_table_data.json())
+
+
+    """Save processed data to a JSON file."""
+    #file_name = generate_filename("final_tables","json")
+    #output_file = f'data/output/{file_name}'
+    #with open(output_file, 'w') as file:
+     #   json.dump(json_data, file, indent=4)
+    #save_to_json_file(json_data.json(), output_file)
+    container_name = 'tenacious-extractor'
+
+    container_path = '/output/parsing'
+
+    local_path = 'data/output/downloads'
+
+    downloads = 'data/output/downloads'
+
+
+    #files =  os.listdir(downloads)
+    # Filter the list to include only JSON files 
+    #filtered_files = [f for f in files if f.endswith('.json')]
+    # Sort the list using the custom sorting function
+    #sorted_filenames = sorted(filtered_files, key=alphanum_key)
+
+    #print("Sorted filenames:", sorted_filenames)
+
+
+    #json_data = collate_output_tables(downloads)
+
+
+    sys.exit()
+    
 
     nlp = spacy.load('en_core_web_sm')
 
