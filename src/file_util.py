@@ -2,6 +2,7 @@ import os
 import json
 from datetime import datetime
 import docker
+from document import Document
 
 def check_for_file(file_path):
 
@@ -116,3 +117,42 @@ def get_files_from_dir(directory,extension='.json'):
     filtered_files = [f for f in files if f.endswith(extension)]
 
     return filtered_files
+
+def load_document_from_json(file_path):
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+        return Document.from_dict(data)
+
+
+def read_json_file(file_path):
+    """Read from a JSON file."""
+    with open(file_path, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+    return data
+
+def output_search_results_to_file(keyword, search_results):
+    # Example structure for storing sections and subsections
+    document_json = {
+        "title": f"Extracted document for keyword {keyword}",
+        "sections": []
+    }
+
+    if(search_results):
+        # Append sections to the JSON object
+        for match in search_results['matches']:
+            section_id = int(match['id'])
+            document_json["sections"].append({
+                "section_id": section_id,
+                "content": sections[section_id]
+            })
+    
+        # Remove spaces and set all characters to lower case 
+        modified_string = keyword.replace(" ", "").lower()
+        file_name = f'query_results_{modified_string}.json'
+        # Save the structured data to a JSON file
+        with open(file_name, 'w') as json_file:
+            json.dump(document_json, json_file, indent=2)
+        
+        print(f"{file_name} saved to JSON!")
+    else:
+        print("No search results!")
