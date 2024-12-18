@@ -9,6 +9,7 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdftypes import resolve1
 from pdfminer.converter import PDFPageAggregator
+from sentence_transformers import SentenceTransformer
 from io import StringIO
 
 import os
@@ -18,7 +19,8 @@ import spacy
 from matcher_patterns import *
 from api_caller import call_api, upload_file
 
-from file_util import read_lines_into_list, write_document_loader_docs_to_file, save_file, save_to_json_file, generate_filename, save_json_file
+from file_util import *
+from data_util import *
 
 from document import Document, Section, Figure, Table
 
@@ -371,7 +373,7 @@ def extract_paragraphs(txt_path, output_file, lines_list, nlp):
     #Get TOC dictionary ...
     my_dict = create_toc_dictionary(lines_list)
 
-    document_json = Document("ai_rmf_extracted_text_json.json")
+    document_json = Document("ai_rmf_extracted_text_json.json",[])
 
     #Open file for writing
     #Open file for reading text from PDF document
@@ -472,7 +474,7 @@ def extract_appendicies(txt_path, output_file, lines_list):
     #Get TOC dictionary ...
     my_dict = create_toc_dictionary(lines_list)
 
-    document_json = Document("ai_rmf_extracted_text_json.json")
+    document_json = Document("ai_rmf_extracted_text_json.json",[])
 
     #Open file for writing
     #Open file for reading text from PDF document
@@ -548,7 +550,7 @@ def extract_figures(txt_path, output_file, lines_list):
     #Get TOC dictionary ...
     my_dict = create_toc_dictionary(lines_list)
 
-    document_json = Document("ai_rmf_extracted_text_figures_json.json")
+    document_json = Document("ai_rmf_extracted_text_figures_json.json",[])
 
     #Open file for writing
     #Open file for reading text from PDF document
@@ -592,7 +594,7 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
     try:
 
         #json_ouput_file = 'data/output/ai_rmf_extracted_json.json'
-        document_json = Document(output_json_path)
+        document_json = Document(output_json_path,[])
 
         #Initialize JSON document with section headers ...
         for line in lines_list:
@@ -781,6 +783,29 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
     except FileNotFoundError: # Code to handle the exception 
         print("There is no file or the path is incorrect!")
 
+def get_document_sections(file_path):
+
+    json_data = read_json_file(file_path)
+
+    sections = []
+
+    heading_title = ''
+
+    for section in json_data['sections']:
+        heading_title = section['heading']
+        paragraphs = " ".join(section['paragraphs'])
+        sections.append(f'{heading_title}\n{paragraphs}')
+
+    return sections
+
+def generate_embeddings(text_chunks, model_name='sentence-transformers/all-MiniLM-L6-v2'):
+    # Load a pre-trained model for generating embeddings
+    model = SentenceTransformer(model_name)
+
+    # Generate embeddings for each chunk
+    section_embeddings = model.encode(text_chunks)
+
+
 def main():
 
     nlp = spacy.load('en_core_web_sm')
@@ -869,13 +894,27 @@ def main():
         #TODO: Convert resultant JSON to correct JSON format
         #SKIP for now ... perform this step when converting JSON to CSV 
         
-        #TODO: Add converted JSON to main JSON file 
+        #TODO: Add converted JSON to main JSON file
+        loaded_pdf_json_doc = load_document_from_json(json_table_output_path)
+        print(loaded_pdf_json_doc)
 
-        #TODO: Add embeddings to Pinecone
+        #Add embeddings to Pinecone
+        sections = get_document_sections(json_output_path)
+
+        embeddings = generate_embeddings(sections)
+
+        add_embeddings_to_pinecone_index(pdf_prefix, embeddings)
 
         #TODO: Iterate through nodes of Graph DB to query vector db
 
         #TODO: Retrieve JSON from Graph DB/ Vector query
+        # Loop through results and do something with them
+        for record in records:
+            keyword = record['Keyword']
+            results = get_search_results(keyword)
+            output_to_file(keyword, results)
+            #print(record['Keyword'])
+
 
     except Exception as e:
         print(f"An error occurred: {e}")
