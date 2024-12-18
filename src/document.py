@@ -25,9 +25,9 @@ class Section:
         self.tables.append(table)
 
 class Document:
-    def __init__(self, title):
+    def __init__(self, title, content):
         self.title = title
-        self.sections = []
+        self.sections = content
 
     def add_section(self, section):
         self.sections.append(section)
@@ -39,6 +39,7 @@ class Document:
                 return section
         return None  # If no section with the given title is found
     
+    @classmethod
     def to_dict(self):
         return {
             "title": self.title,
@@ -53,5 +54,13 @@ class Document:
             ]
         }
 
+    @classmethod 
+    def from_dict(cls, data): 
+        return cls(data["title"], data["sections"])
+                                       
+    @classmethod
     def to_json(self):
         return json.dumps(self.to_dict(), indent=4)
+    
+    def __repr__(self): 
+        return f"Document(title={self.title}, content={self.sections})"
