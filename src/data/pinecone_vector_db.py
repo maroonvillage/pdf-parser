@@ -6,28 +6,64 @@ from sentence_transformers import SentenceTransformer
 class PineConeVectorDB:
     def __init__(self, api_key, prefix):
         
-        self.pineconedb = Pinecone(
-            api_key=api_key
-        )
+        self._api_key = api_key
         # Get the current date and time
         now = datetime.now()
         # Format the date and time as a string (e.g., '2023-04-06_14-30-00')
-        timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = now.strftime("%Y%m%d%H%M%S")
 
-        index_name = f"{prefix}_{timestamp}"
+        index_name = f"{prefix.replace("_","").lower()}-{timestamp}"
         self._index_name = index_name
+        
+        self._index = None
 
+    @property
+    def pineconedb(self):
+        return self._pineconedb
 
+    @pineconedb.setter 
+    def pineconedb(self, value): 
+        """Setter method for name""" 
+        if not value: 
+            raise ValueError("DB cannot be empty") 
+        self._pineconedb = value
+    
+    
+    @property
+    def api_key(self):
+        return self._api_key
+    
+    
+    @api_key.setter 
+    def api_key(self, value): 
+        """Setter method for name""" 
+        if not value: 
+            raise ValueError("API Key cannot be empty") 
+        self._api_key = value
+
+    
     @property 
     def index_name(self): 
         """Getter method for _index_name """ 
         return self._index_name
 
-    @classmethod 
+    @property
+    def index(self):
+        return self._index
+    
+    
     def add_embeddings_to_pinecone_index(self, embeddings, dim=384, metric='euclidean',cloud='aws',region='us-east-1'):
+
+        if(not self.api_key):
+            raise ValueError("API Key name cannot be empty")
+        
 
         if(not self.index_name):
             raise ValueError("Index name cannot be empty")
+        
+        self.pineconedb = Pinecone(
+            api_key=self.api_key
+        )
         
         # Now do stuff
         if self.index_name not in self.pineconedb.list_indexes().names():
@@ -48,22 +84,22 @@ class PineConeVectorDB:
         for i, embedding in enumerate(embeddings):
             self.index.upsert([(str(i), embedding)])
 
-@classmethod            
-def get_vectordb_search_results(self, query, model_name='sentence-transformers/all-MiniLM-L6-v2'):
+           
+    def get_vectordb_search_results(self, query, model_name='sentence-transformers/all-MiniLM-L6-v2'):
 
-    model = SentenceTransformer(model_name)
-    # Search for a query within the document sections
-    query_embedding = model.encode([query])
-    #print(query_embedding[0])
-    query_embedding_list = query_embedding[0].tolist()
-    
-    # Search the vector database
-    #search_results = index.query(vector=query_embedding[0], top_k=5)
-    search_results = self._index.query(
+        model = SentenceTransformer(model_name)
+        # Search for a query within the document sections
+        query_embedding = model.encode([query])
+        #print(query_embedding[0])
+        query_embedding_list = query_embedding[0].tolist()
         
-        vector=query_embedding_list,
-        top_k=5,
-        include_values=True
-    )
+        # Search the vector database
+        #search_results = index.query(vector=query_embedding[0], top_k=5)
+        search_results = self._index.query(
+            
+            vector=query_embedding_list,
+            top_k=5,
+            include_values=True
+        )
 
-    return search_results
+        return search_results
