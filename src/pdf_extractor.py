@@ -24,6 +24,10 @@ from data_util import *
 
 from document import Document, Section, Figure, Table
 
+from data.pinecone_vector_db import PineConeVectorDB
+from data.graph_db import GraphDB
+
+
 def parse_appendices(text):
     lines = text.splitlines()
     document = {
@@ -804,6 +808,8 @@ def generate_embeddings(text_chunks, model_name='sentence-transformers/all-MiniL
 
     # Generate embeddings for each chunk
     section_embeddings = model.encode(text_chunks)
+    
+    return section_embeddings
 
 
 def main():
@@ -850,17 +856,18 @@ def main():
     text = ''
 
     # Check if the PDF text file exists
-    if not os.path.exists(parsed_pdf_txt_path):
-        print(f'The file {parsed_pdf_txt_path} does NOT exists.')
-        #Extract text from PDF ...
-        #docs = extract_text_pypdf(pdf_path)
-        text = extract_text_from_pdf(pdf_path)
-        save_file(parsed_pdf_txt_path, text)
-    else:
-        print(f'The file {parsed_pdf_txt_path} exists.')
+    # if not os.path.exists(parsed_pdf_txt_path):
+    #     print(f'The file {parsed_pdf_txt_path} does NOT exists.')
+    #     #Extract text from PDF ...
+    #     #docs = extract_text_pypdf(pdf_path)
+    #     text = extract_text_from_pdf(pdf_path)
+    #     save_file(parsed_pdf_txt_path, text)
+    # else:
+    #     print(f'The file {parsed_pdf_txt_path} exists.') 
 
     try:
-        #Upload PDF file to container running Camelot
+        
+        """ #Upload PDF file to container running Camelot
         upload_file(f"{base_url}upload", pdf_path)
 
         #Extract Table of Contents ...
@@ -888,32 +895,54 @@ def main():
                 print(json_table_data.json())
 
             save_json_file(json_table_data.json(), json_table_output_path)
-
-
+ """
 
         #TODO: Convert resultant JSON to correct JSON format
         #SKIP for now ... perform this step when converting JSON to CSV 
         
+        
+        #TEMPORARY: 
+        json_output_path =  'data/output/AI__json_output_2024-12-16_13-53-51.json'
         #TODO: Add converted JSON to main JSON file
-        loaded_pdf_json_doc = load_document_from_json(json_table_output_path)
-        print(loaded_pdf_json_doc)
+        #loaded_pdf_json_doc = load_document_from_json(json_table_output_path)
+        loaded_pdf_json_doc = load_document_from_json(json_output_path)
+        #print(loaded_pdf_json_doc)
 
         #Add embeddings to Pinecone
         sections = get_document_sections(json_output_path)
+        
+        print(len(sections))
 
         embeddings = generate_embeddings(sections)
-
-        add_embeddings_to_pinecone_index(pdf_prefix, embeddings)
+        
+        print(embeddings)
+        
+        pinecone_api_key=os.environ.get("PINECONE_API_KEY")
+        pinecond_db = PineConeVectorDB(pinecone_api_key,pdf_prefix)
+        print(pinecond_db.index_name)
+        pinecond_db.add_embeddings_to_pinecone_index(embeddings)
+        
+        
 
         #TODO: Iterate through nodes of Graph DB to query vector db
+        db_name = os.environ.get("NEO4J_DB_NAME")
+        uri = os.environ.get("AURORA_URI")
+        user_id = os.environ.get("USER_ID")
+        auth_key = os.environ.get("NEO4J_AUTH")
+        neo4j_graph_db = GraphDB(db_name, uri, user_id, auth_key)
+        
+        #Get Records from Graph Db query
+        records = neo4j_graph_db.get_keyworsds_graphdb()
 
-        #TODO: Retrieve JSON from Graph DB/ Vector query
+        #print(records)
+        #sys.exit()
         # Loop through results and do something with them
         for record in records:
             keyword = record['Keyword']
-            results = get_search_results(keyword)
-            output_to_file(keyword, results)
-            #print(record['Keyword'])
+            results = pinecond_db.get_vectordb_search_results(keyword)
+            #print(results)
+            #save_file(results, 'data/output/this_is_a_test.txt')
+            output_search_results_to_file(keyword, results, sections)
 
 
     except Exception as e:
