@@ -924,7 +924,7 @@ def main():
         
         
 
-        #TODO: Iterate through nodes of Graph DB to query vector db
+        #Iterate through nodes of Graph DB to query vector db
         db_name = os.environ.get("NEO4J_DB_NAME")
         uri = os.environ.get("AURORA_URI")
         user_id = os.environ.get("USER_ID")
@@ -934,8 +934,6 @@ def main():
         #Get Records from Graph Db query
         records = neo4j_graph_db.get_keyworsds_graphdb()
 
-        #print(records)
-        #sys.exit()
         # Loop through results and do something with them
         for record in records:
             keyword = record['Keyword']
