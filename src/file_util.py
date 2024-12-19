@@ -130,7 +130,7 @@ def read_json_file(file_path):
         data = json.load(file)
     return data
 
-def output_search_results_to_file(keyword, search_results):
+def output_search_results_to_file(keyword, search_results, sections):
     # Example structure for storing sections and subsections
     document_json = {
         "title": f"Extracted document for keyword {keyword}",
@@ -149,10 +149,12 @@ def output_search_results_to_file(keyword, search_results):
         # Remove spaces and set all characters to lower case 
         modified_string = keyword.replace(" ", "").lower()
         file_name = f'query_results_{modified_string}.json'
+        
+        
         # Save the structured data to a JSON file
-        with open(file_name, 'w') as json_file:
+        with open(os.path.join('data/output', file_name), 'w') as json_file:
             json.dump(document_json, json_file, indent=2)
         
-        print(f"{file_name} saved to JSON!")
+        print(f"{os.path.join('data/output', file_name)} saved to JSON!")
     else:
         print("No search results!")
