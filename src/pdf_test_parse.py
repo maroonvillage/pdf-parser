@@ -15,7 +15,12 @@ import sys
 #from pdfminer.layout import LTTextContainer, LTChar
 
 from api_caller import call_api, upload_file
-from file_util import download_file_from_container, generate_filename, save_to_json_file, get_files_from_dir
+from file_util import *
+
+from sentence_transformers import SentenceTransformer
+from data.pinecone_vector_db import PineConeVectorDB
+from data.graph_db import GraphDatabase
+from data_util import *
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -309,40 +314,100 @@ def collate_output_tables(directory):
 
     return new_json_object
 
+def get_document_sections(file_path):
+
+    json_data = read_json_file(file_path)
+
+    sections = []
+
+    heading_title = ''
+
+    for section in json_data['sections']:
+        heading_title = section['heading']
+        paragraphs = " ".join(section['paragraphs'])
+        sections.append(f'{heading_title}\n{paragraphs}')
+
+    return sections
+
+def generate_embeddings(text_chunks, model_name='sentence-transformers/all-MiniLM-L6-v2'):
+    # Load a pre-trained model for generating embeddings
+    model = SentenceTransformer(model_name)
+
+    # Generate embeddings for each chunk
+    section_embeddings = model.encode(text_chunks)
+    
+    return section_embeddings
 
 def main():
 
 
 
-    print('Hello, world from main!')
+    print('Hello, world from pdf_test_parse main!')
 
-    test_files = get_files_from_dir('data/output/downloads',extension='.txt')
+    loaded_pdf_json_doc = load_document_from_json('data/output/AI__json_output_2024-12-16_13-53-51.json')
+    
+    for section in loaded_pdf_json_doc.sections:
+        print(section['heading'])
 
-    if(test_files != []):
-        print(test_files)
-    else:
-        print('Directory was empty.')
+    sections = get_document_sections('data/output/AI__json_output_2024-12-16_13-53-51.json')
+    
+    print(sections)
+    
+    embeddings = generate_embeddings(sections)
+    
+    print(len(embeddings))
+    
+    add_embeddings_to_pinecone_index("testing",embeddings)
+    
+    sys.exit()
 
-    #'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
-    upload_file("http://localhost:8000/upload", "docs/AI_Risk_Management-NIST.AI.100-1.pdf")
+    
+    pinecone_api_key=os.environ.get("PINECONE_API_KEY")
+    pinecond_db = PineConeVectorDB(pinecone_api_key,"pdf_prefix_test")
+    
+    name = pinecond_db.index_name
+    
+    print(name)
+    
+    key = pinecond_db.api_key
+    print(key)
+    
+
+    pinecond_db.add_embeddings_to_pinecone_index(embeddings)
+    
+    idx = pinecond_db.index
+    
+    print(idx)
+        
+    sys.exit()
+
+    # test_files = get_files_from_dir('data/output/downloads',extension='.txt')
+
+    # if(test_files != []):
+    #     print(test_files)
+    # else:
+    #     print('Directory was empty.')
+
+    # #'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    # upload_file("http://localhost:8000/upload", "docs/AI_Risk_Management-NIST.AI.100-1.pdf")
 
 
-    json_response = call_api("http://localhost:8000/extract2", "uploaded_AI_Risk_Management-NIST.AI.100-1.pdf/24-36/stream")
+    # json_response = call_api("http://localhost:8000/extract2", "uploaded_AI_Risk_Management-NIST.AI.100-1.pdf/24-36/stream")
 
 
-    if(json_response.status_code == 200):
-        data = json_response.json()
-        print(data)
-        #Get file name as parameter for next request ...
+    # if(json_response.status_code == 200):
+    #     data = json_response.json()
+    #     print(data)
+    #     #Get file name as parameter for next request ...
 
-        file_name = data.get("filename")
+    #     file_name = data.get("filename")
 
-        print(file_name)
+    #     print(file_name)
 
-        json_table_data = call_api("http://localhost:8000/get_tables", file_name)
+    #     json_table_data = call_api("http://localhost:8000/get_tables", file_name)
 
-        if(json_table_data.status_code == 200):
-            print(json_table_data.json())
+    #     if(json_table_data.status_code == 200):
+    #         print(json_table_data.json())
 
 
     """Save processed data to a JSON file."""
@@ -372,59 +437,59 @@ def main():
     #json_data = collate_output_tables(downloads)
 
 
-    sys.exit()
+    # sys.exit()
     
 
-    nlp = spacy.load('en_core_web_sm')
+    # nlp = spacy.load('en_core_web_sm')
 
 
-    match = find_appendix("Appendix A: This is a test.")
+    # match = find_appendix("Appendix A: This is a test.")
 
-    # Display the match 
-    if match: 
-        print("Match found:") 
-        print(match.group()) 
-    else: 
-        print("No match found.")
+    # # Display the match 
+    # if match: 
+    #     print("Match found:") 
+    #     print(match.group()) 
+    # else: 
+    #     print("No match found.")
 
 
-    sys.exit()
+    # sys.exit()
 
-    list_of_things = []
+    # list_of_things = []
 
-    list_of_things.append("Hello")
-    list_of_things.append("world")
-    list_of_things.append("this is a test")
-    list_of_things.append("Goodbye")
-    #doc  = nlp(None)
+    # list_of_things.append("Hello")
+    # list_of_things.append("world")
+    # list_of_things.append("this is a test")
+    # list_of_things.append("Goodbye")
+    # #doc  = nlp(None)
 
-    my_str = "The day started out like every other day in October."
+    # my_str = "The day started out like every other day in October."
 
-    if("October" in my_str):
-        print("The sentence contained the token.")
+    # if("October" in my_str):
+    #     print("The sentence contained the token.")
 
-    # Path to your PDF file
-    #pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    # # Path to your PDF file
+    # #pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
 
-    pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
+    # pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
 
-    #detect_tables(pdf_path)
+    # #detect_tables(pdf_path)
 
-    #extract_pdf_pages(pdf_path)
+    # #extract_pdf_pages(pdf_path)
 
-    #extract_toc_test()
+    # #extract_toc_test()
 
-    test_str = """Hello,  world this is a  test!"""
+    # test_str = """Hello,  world this is a  test!"""
     
-    sentences  = test_str.split(' ')
+    # sentences  = test_str.split(' ')
 
-    #print(len(sentences))
+    # #print(len(sentences))
 
-    for sentence in sentences:
-        print(f'-{sentence}-\n')
-        #print()
+    # for sentence in sentences:
+    #     print(f'-{sentence}-\n')
+    #     #print()
 
-    print(" ".join(sentences[0:]))
+    # print(" ".join(sentences[0:]))
 
 
 """
