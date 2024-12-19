@@ -163,3 +163,4 @@ cython_debug/
 .DS_Store
 docs/*.txt
 docs/*.pdf
+data/output/*.*
