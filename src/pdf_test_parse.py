@@ -20,7 +20,7 @@ from file_util import *
 from sentence_transformers import SentenceTransformer
 from data.pinecone_vector_db import PineConeVectorDB
 from data.graph_db import GraphDatabase
-from data_util import *
+#from data_util import *
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -338,11 +338,110 @@ def generate_embeddings(text_chunks, model_name='sentence-transformers/all-MiniL
     
     return section_embeddings
 
+
+def convert_pdf_to_json(pdf_file_path, output_txt_path):
+
+    print(f'Inside convert_pdf_to_json ... the path is: {pdf_file_path}')
+
+    try:
+
+        start_page = 3
+
+        line_count = 0
+        
+        output_file = generate_filename(output_txt_path)
+
+        if(pdf_file_path != ''):
+            with open(output_file, 'w') as wfile:
+                with open(pdf_file_path, 'rb') as file:
+                    parser = PDFParser(file)
+                    pdf_document = PDFDocument(parser)
+
+                    parser.set_document(pdf_document) #associates the PDF file with the parser
+                    if pdf_document.is_extractable:
+                        # Set up PDF resources and interpreter
+                        resource_manager = PDFResourceManager()
+                        laparams = LAParams()
+                        device = PDFPageAggregator(resource_manager, laparams=laparams)
+                        interpreter = PDFPageInterpreter(resource_manager, device)
+
+                        # Get the total number of pages in the document 
+                        total_pages = len(list(PDFPage.create_pages(pdf_document))) 
+                        # Create a set of page numbers from start_page to the last page 
+                        page_numbers = set(range(start_page,total_pages))
+
+                        for page_number, page in enumerate(PDFPage.get_pages(file, pagenos=page_numbers)):
+                            interpreter.process_page(page)
+                            layout = device.get_result()  # Layout contains parsed page content
+                            print(f'PageId: {page.pageid}\n')
+                            print(f'Page Number: {page_number}\n')
+                            wfile.write(f'PageId: {page.pageid} Page Number: {page_number}\n')
+                            wfile.write(f'This dimensions for this page are: {layout.height} height, {layout.width} width\n')
+                            # Parse each page layout for structured data like tables here
+                            for element in layout:
+                                first_line = '' #[]
+                                if isinstance(element, LTTextBoxHorizontal):
+
+                                    textbox_content = element.get_text().lstrip().rstrip()
+                                    x0, y0, x1, y1 = element.bbox
+                                    width = x1 - x0
+                                    height = y1 - y0
+                                    wfile.write(f"TextBox boundaries: {element.get_text()} -> ({element.x0} ,{element.y0}) ({element.x1} ,{element.y1}) - {element.bbox}\n")
+                                    #wfile.write(f"TextBox Content: {textbox_content}\n")
+
+                                elif isinstance(element, LTTextLineHorizontal):
+                                    #print("TextLine:", element.get_text())
+                                    wfile.write(f"TextLine: {element.get_text()}\n")
+                                elif isinstance(element, LTChar):
+                                    #print(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}")
+                                    wfile.write(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}\n")
+                                elif isinstance(element, LTLine):
+                                    #print(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})")
+                                    wfile.write(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})\n")
+                                elif isinstance(element, LTRect):
+                                    #print(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})")
+                                    wfile.write(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})\n")
+                                elif isinstance(element, LTFigure):
+                                    #print(f"Figure with width {element.width} and height {element.height}")
+                                    wfile.write(f"Figure with width {element.width} and height {element.height}\n")
+                                elif isinstance(element, LTImage):
+                                    #print("Image found with size:", element.srcsize)
+                                    wfile.write(f"Image found with size: {element.srcsize} \n")
+                                elif isinstance(element, LTTextLineVertical):
+                                    #print("Vertical line found:", element.get_text())
+                                    wfile.write(f"Vertical line found: {element.get_text()} \n")
+                                elif isinstance(element, LTTextGroup):
+                                    #print("Text Group found:", element.get_text())
+                                    wfile.write(f"Text Group found: {element.get_text()} \n")
+                                elif isinstance(element, LTContainer):
+                                    #print(f"Found CONTAINER ... {element.bbox}")
+                                    wfile.write(f"Found CONTAINER ... {element.bbox}\n")
+                                elif isinstance(element, LTTextGroupTBRL):
+                                    #print(f"Found Text Group TBRL ... {element.bbox}")
+                                    wfile.write(f"Found Text Group TBRL ... {element.bbox}\n")
+
+                    else:
+                        print("The document is encrypted and cannot be parsed.")
+
+        else:
+            print('The path is empty!')
+            
+            
+        print(f"Finished parsing file: {pdf_file_path}")
+    except FileNotFoundError: # Code to handle the exception 
+        print("There is no file or the path is incorrect!")
+
+
+
 def main():
 
-
-
     print('Hello, world from pdf_test_parse main!')
+    
+    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    output_path = 'data/output/AI_Risk_Management-PDFMINER_PARSE_TEST'
+    convert_pdf_to_json(pdf_path, output_path)
+    
+    sys.exit()
 
     loaded_pdf_json_doc = load_document_from_json('data/output/AI__json_output_2024-12-16_13-53-51.json')
     
@@ -357,27 +456,6 @@ def main():
     
     print(len(embeddings))
     
-    add_embeddings_to_pinecone_index("testing",embeddings)
-    
-    sys.exit()
-
-    
-    pinecone_api_key=os.environ.get("PINECONE_API_KEY")
-    pinecond_db = PineConeVectorDB(pinecone_api_key,"pdf_prefix_test")
-    
-    name = pinecond_db.index_name
-    
-    print(name)
-    
-    key = pinecond_db.api_key
-    print(key)
-    
-
-    pinecond_db.add_embeddings_to_pinecone_index(embeddings)
-    
-    idx = pinecond_db.index
-    
-    print(idx)
         
     sys.exit()
 
