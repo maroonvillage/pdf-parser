@@ -3,7 +3,6 @@ import spacy
 
 def get_executive_summary_patterns():
 
-
     executive_summary_pattern = [{"LOWER": "executive"}, {"LOWER": "summary"}]
 
     pattern_list = [executive_summary_pattern]

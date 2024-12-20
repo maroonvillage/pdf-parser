@@ -20,85 +20,12 @@ from matcher_patterns import *
 from api_caller import call_api, upload_file
 
 from file_util import *
-from data_util import *
 
 from document import Document, Section, Figure, Table
 
 from data.pinecone_vector_db import PineConeVectorDB
 from data.graph_db import GraphDB
 
-
-def parse_appendices(text):
-    lines = text.splitlines()
-    document = {
-        "title": "Document Title",  # You can extract the document title dynamically as needed
-        "sections": []
-    }
-
-    current_section = None
-    inside_appendix = False
-    current_paragraph = ""
-
-    for line in lines:
-        line = line.strip()
-
-        # Detect the beginning of an appendix section
-        if line.lower().startswith("appendix"):
-            if current_section:
-                # Append any unfinished paragraph to the section
-                if current_paragraph:
-                    current_section["paragraphs"].append(current_paragraph.strip())
-                
-                document["sections"].append(current_section)
-
-            # Start a new appendix section
-            current_section = {
-                "heading": line,
-                "paragraphs": [],
-                "figures": [],
-                "tables": [],
-                "pages": []
-            }
-            current_paragraph = ""
-            inside_appendix = True
-            continue
-
-        # Detect figure or table references
-        elif line.lower().startswith("figure"):
-            current_section["figures"].append(line)
-        elif line.lower().startswith("table"):
-            current_section["tables"].append(line)
-
-        # If we're inside an appendix, gather paragraphs
-        elif inside_appendix:
-            if line:  # If it's not an empty line, add to the current paragraph
-                current_paragraph += " " + line
-            else:
-                # End of a paragraph, add it to the section
-                if current_paragraph:
-                    current_section["paragraphs"].append(current_paragraph.strip())
-                    current_paragraph = ""
-
-    # Add the last section and paragraph if any
-    if current_section:
-        if current_paragraph:
-            current_section["paragraphs"].append(current_paragraph.strip())
-        document["sections"].append(current_section)
-
-    return document
-
-def get_outline_page_no(pages, dest):
-        page_num = 0
-        # Resolve the destination to get the page object
-        dest = resolve1(dest)
-        if isinstance(dest, dict) and 'Page' in dest:
-            page_obj = dest['Page']
-            # Find the corresponding page number
-            page_num = next((i + 1 for i, p in enumerate(pages) if p == page_obj), None)
-            
-            print(f"Page Number: {page_num}")
-
-        return  page_num
 
 def extract_toc(pdf_path, output_path=''):
 
@@ -117,15 +44,6 @@ def extract_toc(pdf_path, output_path=''):
                     print(f'Level: {level}, Title: {title}, dest: {dest}, a: {a}, se: {se}')
         else:
             print('No output path!')
-                        
-        
-
-def extract_text_from_pdf_lanchain(pdf_path):
-
-    text_pages = extract_text(pdf_path)
-
-    return text_pages
-
 
 def extract_text_from_pdf(pdf_path):
     # Open the PDF file
@@ -165,34 +83,7 @@ def extract_text_from_pdf(pdf_path):
         output_string.close()
 
         return text
-    
-def extract_text_by_page(pdf_path):
-    with open(pdf_path, 'rb') as file:
-        parser = PDFParser(file)
-        document = PDFDocument(parser)
-
-        if not document.is_extractable:
-            raise ValueError("Text extraction is not allowed for this PDF")
-
-        rsrcmgr = PDFResourceManager()
-        laparams = LAParams()
-
-        for page_number, page in enumerate(PDFPage.create_pages(document), start=1):
-            output_string = StringIO()
-            device = TextConverter(rsrcmgr, output_string, laparams=laparams)
-            interpreter = PDFPageInterpreter(rsrcmgr, device)
-            interpreter.process_page(page)
-            text = output_string.getvalue()
-            print(f"Page {page_number}:\n{text}")
-            device.close()
-
-def find_chapters(text):
-    # Regular expressions for detecting chapters, sections, and figures
-    chapter_pattern = r"\bChapter\s\d+\b"
-
-    # Find chapters, sections, and figures
-    chapters = re.findall(chapter_pattern, text)
-
+                            
 def find_section(text, matching_groups=False):
     sections_pattern = r"^(?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*\s+[A-Za-z][\w\s\-\,]+"
     section_pattern_with_matching_groups = r"^((?:\d+\.{0,1})(?:\d+)*(?:\.\d+)*)(\s+[A-Za-z][\w\s\-\,]+)"
@@ -235,16 +126,6 @@ def find_figures(text):
     #print(figures)
     return figures
 
-def find_tables(text):
-    # Regular expressions for detecting chapters, sections, and figures
-    table_pattern = r"Table\s\d+"
-
-    # Find chapters, sections, and figures
-    tables = re.findall(table_pattern, text)
-
-    #print(tables)
-    return tables
-
 def find_appendicies(text):
 
      # Regular expressions for detecting chapters, sections, and figures
@@ -263,19 +144,6 @@ def find_appendix(text):
 
     return re.match(appendix_pattern, text)
 
-def find_page_number(text):
-
-    page_no_pattern = r"(?:Page|page|pg)\s(?:\d+|[ivx])+"
-
-    # Find chapters, sections, and figures
-    page_no = re.findall(page_no_pattern, text)
-
-    return page_no
-
-def is_end_of_sentence(text):
-    sentence_endings = ('.', '?', '!', ')')
-    return text.endswith(sentence_endings)
-
 def create_toc_dictionary(lines_list):
     
     keys = []
@@ -293,25 +161,6 @@ def create_toc_dictionary(lines_list):
         dict[key] = value_list
 
     return dict
-
-"""
-def extract_tables():
-
-    # Open the PDF file
-    with pdfplumber.open("docs/ISO+IEC+23894-2023.pdf") as pdf:
-        # Select the first page
-        first_page = pdf.pages[7]
-        
-        # Extract tables
-        tables = first_page.extract_table()
-        
-        if(tables != None):
-            # Print the extracted table
-            for row in tables:
-                print(row)
-        else:
-            print("No tables were found.")
-"""
 
 def get_matcher(nlp) -> Matcher:
 
@@ -340,256 +189,6 @@ def get_matcher(nlp) -> Matcher:
         matcher.add("SummaryMethods", [pattern])
 
     return matcher
-
-def extract_paragraphs(txt_path, output_file, lines_list, nlp):
-
-    """Parameters: 
-    
-    txt_path - path to file containing text from pdf document
-    output_file - path to the JSON file that will be written 
-    lines_list - list of lines from TOC
-    nlp - LLM model
-    matcher - langchain matcher for some patterns in PDF documents
-            """
-    my_dict = {}
-
-    section_str = ""
-    paragraph = ""
-    figure = ""
-    found_match = False
-    found_section = False
-    found_figure = False
-    found_table = False
-    found_appendix = False
-    found_page_no = False
-    found_empty_line = False
-    is_paragraph_complete = False
-
-    paragraphs = []
-    figures = []
-
-    current_section = None
-    current_figure = None
-
-
-    matcher = get_matcher(nlp)
-
-    #Get TOC dictionary ...
-    my_dict = create_toc_dictionary(lines_list)
-
-    document_json = Document("ai_rmf_extracted_text_json.json",[])
-
-    #Open file for writing
-    #Open file for reading text from PDF document
-
-    with open(output_file, 'w') as wfile:
-        with open(txt_path, 'r') as file:
-            # Read and print each line one by one
-            for line in file:
-                stripped_line = line.lstrip().rstrip() #remove leading and trailing spaces from string while preserving newline characters
-                wfile.write(f'stripped line: {stripped_line}\n')
-                doc  = nlp(stripped_line)
-                matches = matcher(doc)
-                if matches:
-                    wfile.write(f'MATCHES: {stripped_line}\n')
-                    current_section = None
-                    section_str = stripped_line
-                    current_section = document_json.find_section_by_heading(section_str)
-                    if(current_section == None):
-                        current_section = Section(section_str)
-                        document_json.add_section(current_section)
-                        found_match = True
-                elif(find_sections(stripped_line) != []):
-                    #print(f'Found section: {stripped_line}')
-                    current_section = None
-                    section_match = None
-                    section_match = find_section(stripped_line,matching_groups=True)
-                    if (section_match != None):
-                        # A section header was found.
-                        # Determine that the header is in the dictionary of headers
-                        match_str = section_match.group(2)
-                        wfile.write(f'{match_str}\n')
-                        if(match_str.strip() in my_dict):
-                            #Add header to document object
-                            section_str = stripped_line
-                            wfile.write(f'SECTION {section_str}\n')
-                            current_section = document_json.find_section_by_heading(section_str)
-                            if(current_section == None):
-                                current_section = Section(section_str)
-                                document_json.add_section(current_section)
-                                found_section = True
-                            paragraph = ''
-                elif(find_appendicies(stripped_line) != []):
-                    current_section = None
-                    paragraph = ''
-                elif(stripped_line == ''):
-                    wfile.write("found empty line\n")
-                    #Check for captured paragraph
-                    if(paragraph != ''):
-                        current_section = document_json.find_section_by_heading(section_str)
-                        if(current_section != None):
-                            wfile.write("current_section was not None \n")
-                            current_section.add_paragraph(paragraph)
-                        else:
-                            wfile.write("current_section was None \n")
-                            current_section = Section(section_str)
-                            current_section.add_paragraph(paragraph)
-                        wfile.write(f"\tWROTE PARAGRAPH: {section_str} \n")
-                        paragraph = ''
-                else:
-                    wfile.write(f'{stripped_line}\n')
-                    paragraph += f'{stripped_line}\n'
-
-    json_ouput_file = 'data/output/ai_rmf_sections_json.json'
-    save_to_json_file(document_json.to_json(), json_ouput_file)
-
-def extract_appendicies(txt_path, output_file, lines_list):
-
-    print('Extract Appendicies')
-
-    """Parameters: 
-    
-    txt_path - path to file containing text from pdf document
-    output_file - path to the JSON file that will be written 
-    lines_list - list of lines from TOC
-    nlp - LLM model
-    matcher - langchain matcher for some patterns in PDF documents
-            """
-    my_dict = {}
-
-    section_str = ""
-    paragraph = ""
-    figure = ""
-    found_match = False
-    found_section = False
-    found_figure = False
-    found_table = False
-    found_appendix = False
-    found_page_no = False
-    found_empty_line = False
-    is_paragraph_complete = False
-
-    paragraphs = []
-    figures = []
-
-    current_section = None
-    current_figure = None
-
-    #Get TOC dictionary ...
-    my_dict = create_toc_dictionary(lines_list)
-
-    document_json = Document("ai_rmf_extracted_text_json.json",[])
-
-    #Open file for writing
-    #Open file for reading text from PDF document
-
-    with open(output_file, 'w') as wfile:
-        with open(txt_path, 'r') as file:
-            # Read and print each line one by one
-            for line in file:
-                stripped_line = line.lstrip().rstrip() #remove leading and trailing spaces from string while preserving newline characters
-                #wfile.write(f'{stripped_line}\n')
-                if(find_appendicies(stripped_line) != []):
-                    wfile.write(f'APPENDIX: {stripped_line}\n')
-                    current_section = None
-                    #Check for Appendix section in json document
-                    section_str = stripped_line
-                    current_section = document_json.find_section_by_heading(section_str)
-                    if(current_section == None):
-                            current_section = Section(section_str)
-                            document_json.add_section(current_section)
-                    found_appendix = True
-                elif(stripped_line == ''):
-                    wfile.write("found empty line\n")
-                    #Check for captured paragraph
-                    if(paragraph != ''):
-                        current_section = document_json.find_section_by_heading(section_str)
-                        if(current_section != None):
-                            wfile.write("current_section was not None \n")
-                            current_section.add_paragraph(paragraph)
-                        else:
-                            wfile.write("current_section was None \n")
-                            current_section = Section(section_str)
-                            current_section.add_paragraph(paragraph)
-                        wfile.write(f"\tWROTE PARAGRAPH: {section_str} \n")
-                        paragraph = ''
-                else:
-                    wfile.write(f'{stripped_line}\n')
-                    paragraph += f'{stripped_line}\n'
-
-    json_ouput_file = 'data/output/ai_rmf_appendicies_json.json'
-    save_to_json_file(document_json.to_json(), json_ouput_file)
-
-
-def extract_figures(txt_path, output_file, lines_list):
-
-    print('Extract Figures')
-
-    """Parameters: 
-    txt_path - path to file containing text from pdf document
-    output_file - path to the JSON file that will be written 
-    lines_list - list of lines from TOC
-    """
-
-    my_dict = {}
-
-    section_str = ""
-    paragraph = ""
-    figure = ""
-    found_match = False
-    found_section = False
-    found_figure = False
-    found_table = False
-    found_appendix = False
-    found_page_no = False
-    found_empty_line = False
-    is_paragraph_complete = False
-
-    paragraphs = []
-    figures = []
-
-    current_section = None
-    current_figure = None
-
-    #Get TOC dictionary ...
-    my_dict = create_toc_dictionary(lines_list)
-
-    document_json = Document("ai_rmf_extracted_text_figures_json.json",[])
-
-    #Open file for writing
-    #Open file for reading text from PDF document
-
-    with open(output_file, 'w') as wfile:
-        with open(txt_path, 'r') as file:
-            # Read and print each line one by one
-            for line in file:
-                stripped_line = line.lstrip().rstrip() #remove leading and trailing spaces from string while preserving newline characters
-                #wfile.write(f'{stripped_line}\n')
-                if(find_figures(stripped_line) != []):
-                    wfile.write(f'FIGURE: {stripped_line}\n')
-                    #figure += stripped_line
-                    found_figure = True
-                elif(stripped_line == ''):
-                    wfile.write("found empty line\n")
-                    #Check for captured paragraph
-                    if(paragraph != ''):
-                        current_section = document_json.find_section_by_heading(section_str)
-                        if(current_section != None):
-                            wfile.write("current_section was not None \n")
-                            current_section.add_paragraph(paragraph)
-                        else:
-                            wfile.write("current_section was None \n")
-                            current_section = Section(section_str)
-                            current_section.add_paragraph(paragraph)
-                        wfile.write(f"\tWROTE PARAGRAPH: {section_str} \n")
-                        paragraph = ''
-                else:
-                    wfile.write(f'{stripped_line}\n')
-                    paragraph += f'{stripped_line}\n'
-
-    json_ouput_file = 'data/output/ai_rmf_figures_json.json'
-    save_to_json_file(document_json.to_json(), json_ouput_file)
-
 
 def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_list, nlp):
 
@@ -823,7 +422,6 @@ def main():
     output_folder = 'data/output'
 
     pdf_file_name =  'AI_Risk_Management-NIST.AI.100-1.pdf'
-    #ISO+IEC+23894-2023
     
     pdf_prefix = pdf_file_name[:3]
 
@@ -845,38 +443,35 @@ def main():
     json_table_output_file_name = generate_filename(f'{pdf_prefix}_json_table_output',extension="json")
     json_table_output_path = os.path.join(output_folder, json_table_output_file_name)
 
+    #TODO: Add logging here ...
     print(parsed_pdf_txt_path)
     print(pdfminer_txt_path)
     print(toc_output_path)
     print(json_output_path)
 
-
-    #sys.exit()
-
     text = ''
 
     # Check if the PDF text file exists
-    # if not os.path.exists(parsed_pdf_txt_path):
-    #     print(f'The file {parsed_pdf_txt_path} does NOT exists.')
-    #     #Extract text from PDF ...
-    #     #docs = extract_text_pypdf(pdf_path)
-    #     text = extract_text_from_pdf(pdf_path)
-    #     save_file(parsed_pdf_txt_path, text)
-    # else:
-    #     print(f'The file {parsed_pdf_txt_path} exists.') 
+    if not os.path.exists(parsed_pdf_txt_path):
+        print(f'The file {parsed_pdf_txt_path} does NOT exists.')
+        #Extract text from PDF ...
+        text = extract_text_from_pdf(pdf_path)
+        save_file(parsed_pdf_txt_path, text)
+    else:
+        print(f'The file {parsed_pdf_txt_path} exists.') 
 
     try:
         
-        """ #Upload PDF file to container running Camelot
+        #Upload PDF file to container running Camelot
         upload_file(f"{base_url}upload", pdf_path)
-
+        #TODO: Add log entry 
         #Extract Table of Contents ...
         extract_toc(pdf_path, toc_output_path)
-
+        #TODO: Add log entry 
         #Capture list of lines from Table of Contents
         lines_list = read_lines_into_list(toc_output_path)
+        #TODO: Add log entry 
         print(lines_list)
-        
         #TODO: Make this call correctly ...
         convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp)
 
@@ -889,13 +484,12 @@ def main():
             #Get file name as parameter for next request ...
             file_name = data.get("filename")   
 
-            json_table_data = call_api("http://localhost:8000/get_tables", file_name)
+            json_table_data = call_api(f"{base_url}get_tables", file_name)
 
             if(json_table_data.status_code == 200):
                 print(json_table_data.json())
 
-            save_json_file(json_table_data.json(), json_table_output_path)
- """
+            save_json_file(json_table_data.json(), json_table_output_path)  
 
         #TODO: Convert resultant JSON to correct JSON format
         #SKIP for now ... perform this step when converting JSON to CSV 
@@ -940,7 +534,7 @@ def main():
             results = pinecond_db.get_vectordb_search_results(keyword)
             #print(results)
             #save_file(results, 'data/output/this_is_a_test.txt')
-            output_search_results_to_file(keyword, results, sections)
+            pinecond_db.output_search_results_to_file(keyword, results, sections)
 
 
     except Exception as e:
