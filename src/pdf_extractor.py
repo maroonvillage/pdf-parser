@@ -16,6 +16,7 @@ import os
 import re
 
 import spacy
+import pdf_parser_logger as log
 from matcher_patterns import *
 from api_caller import call_api, upload_file
 
@@ -27,23 +28,27 @@ from data.pinecone_vector_db import PineConeVectorDB
 from data.graph_db import GraphDB
 
 
+
 def extract_toc(pdf_path, output_path=''):
 
-    with open(pdf_path, 'rb') as fp:
-        parser = PDFParser(fp)
-        document = PDFDocument(parser)
+    try:
+        with open(pdf_path, 'rb') as fp:
+            parser = PDFParser(fp)
+            document = PDFDocument(parser)
 
-        #Get pages 
-        #pages = list(PDFPage.get_pages(fp))
-        outlines = document.get_outlines()
+            #Get pages 
+            #pages = list(PDFPage.get_pages(fp))
+            outlines = document.get_outlines()
 
-        if(output_path != ''):
-            with open(output_path, 'w') as file:
-                for (level, title, dest, a, se) in outlines:
-                    file.write(f'{title}\n') 
-                    print(f'Level: {level}, Title: {title}, dest: {dest}, a: {a}, se: {se}')
-        else:
-            print('No output path!')
+            if(output_path != ''):
+                with open(output_path, 'w') as file:
+                    for (level, title, dest, a, se) in outlines:
+                        file.write(f'{title}\n') 
+                        #print(f'Level: {level}, Title: {title}, dest: {dest}, a: {a}, se: {se}')
+            else:
+                raise AttributeError("The path is empty!")
+    except AttributeError as e:
+        raise
 
 def extract_text_from_pdf(pdf_path):
     # Open the PDF file
@@ -236,8 +241,8 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                         for page_number, page in enumerate(PDFPage.get_pages(file, pagenos=page_numbers)):
                             interpreter.process_page(page)
                             layout = device.get_result()  # Layout contains parsed page content
-                            print(f'PageId: {page.pageid}\n')
-                            print(f'Page Number: {page_number}\n')
+                            #print(f'PageId: {page.pageid}\n')
+                            #print(f'Page Number: {page_number}\n')
                             wfile.write(f'PageId: {page.pageid} Page Number: {page_number}\n')
                             wfile.write(f'This dimensions for this page are: {layout.height} height, {layout.width} width\n')
                             # Parse each page layout for structured data like tables here
@@ -275,7 +280,7 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                                     #You will also look for Figure/Fig. followed by a caption which will be in the Textbox content.
                                     #Since a Figure/Fig will be part of a section, it should always be true that the 'current heading' variable
                                     #will contain a value before you encounter a Figure/Fig.  
-                                    print(f'############# First Line: {first_line}#######################\n')
+                                    #print(f'############# First Line: {first_line}#######################\n')
                                     doc  = nlp(first_line)
                                     matches = matcher(doc)
                                     found_sections = find_sections(first_line)
@@ -338,7 +343,7 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                                             current_section.add_figure(Figure(textbox_content))
                                     else:
                                         if(current_section_header != ''):
-                                            print(f'The current section is: {current_section_header}')
+                                            #print(f'The current section is: {current_section_header}')
                                             
                                             current_section = document_json.find_section_by_heading(current_section_header)
                                             if(current_section != None):
@@ -347,44 +352,48 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                                     
 
                                 elif isinstance(element, LTTextLineHorizontal):
-                                    print("TextLine:", element.get_text())
+                                    #print("TextLine:", element.get_text())
                                     wfile.write(f"TextLine: {element.get_text()}\n")
                                 elif isinstance(element, LTChar):
-                                    print(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}")
+                                    #print(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}")
                                     wfile.write(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}\n")
                                 elif isinstance(element, LTLine):
-                                    print(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})")
+                                    #print(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})")
                                     wfile.write(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})\n")
                                 elif isinstance(element, LTRect):
-                                    print(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})")
+                                    #print(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})")
                                     wfile.write(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})\n")
                                 elif isinstance(element, LTFigure):
-                                    print(f"Figure with width {element.width} and height {element.height}")
+                                    #print(f"Figure with width {element.width} and height {element.height}")
                                     wfile.write(f"Figure with width {element.width} and height {element.height}\n")
                                 elif isinstance(element, LTImage):
-                                    print("Image found with size:", element.srcsize)
+                                    #print("Image found with size:", element.srcsize)
                                     wfile.write(f"Image found with size: {element.srcsize} \n")
                                 elif isinstance(element, LTTextLineVertical):
-                                    print("Vertical line found:", element.get_text())
+                                    #print("Vertical line found:", element.get_text())
                                     wfile.write(f"Vertical line found: {element.get_text()} \n")
                                 elif isinstance(element, LTTextGroup):
-                                    print("Text Group found:", element.get_text())
+                                    #print("Text Group found:", element.get_text())
                                     wfile.write(f"Text Group found: {element.get_text()} \n")
                                 elif isinstance(element, LTContainer):
-                                    print(f"Found CONTAINER ... {element.bbox}")
+                                    #print(f"Found CONTAINER ... {element.bbox}")
                                     wfile.write(f"Found CONTAINER ... {element.bbox}\n")
                                 elif isinstance(element, LTTextGroupTBRL):
-                                    print(f"Found Text Group TBRL ... {element.bbox}")
+                                    #print(f"Found Text Group TBRL ... {element.bbox}")
                                     wfile.write(f"Found Text Group TBRL ... {element.bbox}\n")
 
                     else:
-                        print("The document is encrypted and cannot be parsed.")
+                        #print("The document is encrypted and cannot be parsed.")
+                        log.logger.warning(f"The document {pdf_file_path} is encrypted and cannot be pasred.")
 
             save_to_json_file(document_json.to_json(), output_json_path)
         else:
-            print('The path is empty!')
-    except FileNotFoundError: # Code to handle the exception 
-        print("There is no file or the path is incorrect!")
+            raise AttributeError("The path is empty!")
+    except FileNotFoundError as e: # Code to handle the exception 
+        log.logger.error(f"convert_pdf_to_json - {e}")
+        raise
+    except AttributeError as e:
+        raise
 
 def get_document_sections(file_path):
 
@@ -421,7 +430,7 @@ def main():
     input_folder = 'docs'
     output_folder = 'data/output'
 
-    pdf_file_name =  'AI_Risk_Management-NIST.AI.100-1.pdf'
+    pdf_file_name =  'ISO+IEC+23894-2023.pdf' #'AI_Risk_Management-NIST.AI.100-1.pdf'
     
     pdf_prefix = pdf_file_name[:3]
 
@@ -444,40 +453,54 @@ def main():
     json_table_output_path = os.path.join(output_folder, json_table_output_file_name)
 
     #TODO: Add logging here ...
-    print(parsed_pdf_txt_path)
-    print(pdfminer_txt_path)
-    print(toc_output_path)
-    print(json_output_path)
+    
+    log.logger.info(f'File will contain text parsed using Py: {parsed_pdf_txt_path}')
+    log.logger.info(f'File will contain text parsed using PDFMiner: {pdfminer_txt_path}')
+    log.logger.info(f'File will container table of contents from PDF document: {toc_output_path}')
+    log.logger.info(f'File will contain parsed text in JSON format: {json_output_path}')
 
     text = ''
 
     # Check if the PDF text file exists
     if not os.path.exists(parsed_pdf_txt_path):
-        print(f'The file {parsed_pdf_txt_path} does NOT exists.')
+        #print(f'The file {parsed_pdf_txt_path} does NOT exists.')
+        log.logger.warning(f'The file {parsed_pdf_txt_path} does NOT exists.')
         #Extract text from PDF ...
         text = extract_text_from_pdf(pdf_path)
         save_file(parsed_pdf_txt_path, text)
     else:
-        print(f'The file {parsed_pdf_txt_path} exists.') 
+        #print(f'The file {parsed_pdf_txt_path} exists.') 
+        log.logger.info(f'The file {parsed_pdf_txt_path} exists.') 
 
     try:
         
-        #Upload PDF file to container running Camelot
-        upload_file(f"{base_url}upload", pdf_path)
-        #TODO: Add log entry 
-        #Extract Table of Contents ...
-        extract_toc(pdf_path, toc_output_path)
-        #TODO: Add log entry 
-        #Capture list of lines from Table of Contents
-        lines_list = read_lines_into_list(toc_output_path)
-        #TODO: Add log entry 
-        print(lines_list)
-        #TODO: Make this call correctly ...
-        convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp)
+        if (1==0):        
+            #Upload PDF file to container running Camelot
+            upload_file(f"{base_url}upload", pdf_path)
 
+            log.logger.info(f'main - {pdf_path} successfully uploaded to container.')
+            
+            #Extract Table of Contents ...
+            extract_toc(pdf_path, toc_output_path)
+            #TODO: Add log entry 
+            #Capture list of lines from Table of Contents
+            lines_list = read_lines_into_list(toc_output_path)
+            
+            log.logger.info(f'main - table for contents of document {pdf_path} sucessfully extracted.')
+            
+            convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp)
+            
+            log.logger.info(f'main - pdf text has been sucessfully converted to JSON {json_output_path}.')
+            
+        
+        #TEMPORARY ...
+        
+        
         #TODO: Automate process to determine the range of pages and the lattice or stream parameters of the API call ...
-        extract_response = call_api(f"{base_url}/extract2", f"uploaded_{pdf_file_name}/24-36/stream")
+        extract_response = call_api(f"{base_url}/extract2", f"uploaded_{pdf_file_name}/all/lattice")
 
+        log.logger.info(f"A request to the API has been made. URL: {base_url}/extract2, PARAMS: {pdf_file_name}/all/lattice")
+        
         #Get file name of collated table data
         if(extract_response.status_code == 200):
             data = extract_response.json()
@@ -494,9 +517,9 @@ def main():
         #TODO: Convert resultant JSON to correct JSON format
         #SKIP for now ... perform this step when converting JSON to CSV 
         
-        
+        sys.exit()
         #TEMPORARY: 
-        json_output_path =  'data/output/AI__json_output_2024-12-16_13-53-51.json'
+        #json_output_path =  'data/output/AI__json_output_2024-12-16_13-53-51.json'
         #TODO: Add converted JSON to main JSON file
         #loaded_pdf_json_doc = load_document_from_json(json_table_output_path)
         loaded_pdf_json_doc = load_document_from_json(json_output_path)
@@ -534,7 +557,7 @@ def main():
             results = pinecond_db.get_vectordb_search_results(keyword)
             #print(results)
             #save_file(results, 'data/output/this_is_a_test.txt')
-            pinecond_db.output_search_results_to_file(keyword, results, sections)
+            pinecond_db.output_search_results_to_file(pdf_prefix, keyword, results, sections)
 
 
     except Exception as e:
