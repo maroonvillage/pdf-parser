@@ -39,7 +39,7 @@ class Document:
                 return section
         return None  # If no section with the given title is found
     
-    @classmethod
+    #@classmethod
     def to_dict(self):
         return {
             "title": self.title,
@@ -54,11 +54,11 @@ class Document:
             ]
         }
 
-    @classmethod 
+    #@classmethod 
     def from_dict(cls, data): 
         return cls(data["title"], data["sections"])
                                        
-    @classmethod
+    #@classmethod
     def to_json(self):
         return json.dumps(self.to_dict(), indent=4)
     
