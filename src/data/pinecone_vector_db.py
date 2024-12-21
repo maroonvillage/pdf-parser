@@ -105,7 +105,7 @@ class PineConeVectorDB:
         return search_results
     
     
-def output_search_results_to_file(keyword, search_results, sections):
+def output_search_results_to_file(prefix, keyword, search_results, sections):
     # Example structure for storing sections and subsections
     document_json = {
         "title": f"Extracted document for keyword {keyword}",
@@ -123,7 +123,7 @@ def output_search_results_to_file(keyword, search_results, sections):
     
         # Remove spaces and set all characters to lower case 
         modified_string = keyword.replace(" ", "").lower()
-        file_name = f'query_results_{modified_string}.json'
+        file_name = f'{prefix}_query_results_{modified_string}.json'
         
         
         # Save the structured data to a JSON file
