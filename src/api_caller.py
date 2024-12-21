@@ -1,5 +1,6 @@
 import requests
 from requests import JSONDecodeError
+import pdf_parser_logger as log
 
 def call_api(base_url, params):
 
@@ -30,24 +31,24 @@ def upload_file(upload_url, pdf_file_path):
         if(pdf_file_path == '' or pdf_file_path == None):
             raise FileNotFoundError(f'File does not exist or path incorrect: {pdf_file_path}!')
     except FileNotFoundError as e:
-        print(e)
-        return
+        raise
 
 
     try:
 
         files = {"file": open(pdf_file_path, "rb")}
         response = requests.post(upload_url, files=files)
-        
-        #TODO: Add log entry here ...
 
         if(response != None):
-            # Print the response
-            print(response.json())
+            # log the response
+            log.logger.info(f'upload_file - Response from API: {response.json()}')
 
     except JSONDecodeError as e: 
-        print(f"Failed to decode JSON from the response {e}") 
+        log.logger.error(f"upload_file - Failed to decode JSON from the response {e}") 
+        raise
     except requests.exceptions.RequestException as e: 
-        print("Request failed:",e)
+        log.logger.error(f"Request failed: {e}")
+        raise
     except FileNotFoundError as e:
-        print(e)
+        log.logger.error(f"upload_file - {e}")
+        raise
