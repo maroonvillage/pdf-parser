@@ -234,10 +234,13 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                         interpreter = PDFPageInterpreter(resource_manager, device)
 
                         # Get the total number of pages in the document 
-                        total_pages = len(list(PDFPage.create_pages(pdf_document))) 
+                        total_pages = len(list(PDFPage.create_pages(pdf_document)))
+                        log.logger.info(f'Total pages for {pdf_file_path}: {total_pages}')
                         # Create a set of page numbers from start_page to the last page 
                         page_numbers = set(range(start_page,total_pages))
-
+                        
+                        log.logger.info(f'Page numbers for {pdf_file_path}: {page_numbers}')
+                        
                         for page_number, page in enumerate(PDFPage.get_pages(file, pagenos=page_numbers)):
                             interpreter.process_page(page)
                             layout = device.get_result()  # Layout contains parsed page content
@@ -474,7 +477,7 @@ def main():
 
     try:
         
-        if (1==0):        
+        if (1==1):        
             #Upload PDF file to container running Camelot
             upload_file(f"{base_url}upload", pdf_path)
 
@@ -494,70 +497,69 @@ def main():
             
         
         #TEMPORARY ...
+        else:
         
-        
-        #TODO: Automate process to determine the range of pages and the lattice or stream parameters of the API call ...
-        extract_response = call_api(f"{base_url}/extract2", f"uploaded_{pdf_file_name}/all/lattice")
+            #TODO: Automate process to determine the range of pages and the lattice or stream parameters of the API call ...
+            extract_response = call_api(f"{base_url}/extract2", f"uploaded_{pdf_file_name}/all/lattice")
 
-        log.logger.info(f"A request to the API has been made. URL: {base_url}/extract2, PARAMS: {pdf_file_name}/all/lattice")
-        
-        #Get file name of collated table data
-        if(extract_response.status_code == 200):
-            data = extract_response.json()
-            #Get file name as parameter for next request ...
-            file_name = data.get("filename")   
+            log.logger.info(f"A request to the API has been made. URL: {base_url}/extract2, PARAMS: {pdf_file_name}/all/lattice")
+            
+            #Get file name of collated table data
+            if(extract_response.status_code == 200):
+                data = extract_response.json()
+                #Get file name as parameter for next request ...
+                file_name = data.get("filename")   
 
-            json_table_data = call_api(f"{base_url}get_tables", file_name)
+                json_table_data = call_api(f"{base_url}get_tables", file_name)
 
-            if(json_table_data.status_code == 200):
-                print(json_table_data.json())
+                if(json_table_data.status_code == 200):
+                    print(json_table_data.json())
 
-            save_json_file(json_table_data.json(), json_table_output_path)  
+                save_json_file(json_table_data.json(), json_table_output_path)  
 
-        #TODO: Convert resultant JSON to correct JSON format
-        #SKIP for now ... perform this step when converting JSON to CSV 
-        
-        sys.exit()
-        #TEMPORARY: 
-        #json_output_path =  'data/output/AI__json_output_2024-12-16_13-53-51.json'
-        #TODO: Add converted JSON to main JSON file
-        #loaded_pdf_json_doc = load_document_from_json(json_table_output_path)
-        loaded_pdf_json_doc = load_document_from_json(json_output_path)
-        #print(loaded_pdf_json_doc)
+            #TODO: Convert resultant JSON to correct JSON format
+            #SKIP for now ... perform this step when converting JSON to CSV 
+            
+            sys.exit()
+            #TEMPORARY: 
+            #json_output_path =  'data/output/AI__json_output_2024-12-16_13-53-51.json'
+            #TODO: Add converted JSON to main JSON file
+            #loaded_pdf_json_doc = load_document_from_json(json_table_output_path)
+            loaded_pdf_json_doc = load_document_from_json(json_output_path)
+            #print(loaded_pdf_json_doc)
 
-        #Add embeddings to Pinecone
-        sections = get_document_sections(json_output_path)
-        
-        print(len(sections))
+            #Add embeddings to Pinecone
+            sections = get_document_sections(json_output_path)
+            
+            print(len(sections))
 
-        embeddings = generate_embeddings(sections)
-        
-        print(embeddings)
-        
-        pinecone_api_key=os.environ.get("PINECONE_API_KEY")
-        pinecond_db = PineConeVectorDB(pinecone_api_key,pdf_prefix)
-        print(pinecond_db.index_name)
-        pinecond_db.add_embeddings_to_pinecone_index(embeddings)
-        
-        
+            embeddings = generate_embeddings(sections)
+            
+            print(embeddings)
+            
+            pinecone_api_key=os.environ.get("PINECONE_API_KEY")
+            pinecond_db = PineConeVectorDB(pinecone_api_key,pdf_prefix)
+            print(pinecond_db.index_name)
+            pinecond_db.add_embeddings_to_pinecone_index(embeddings)
+            
 
-        #Iterate through nodes of Graph DB to query vector db
-        db_name = os.environ.get("NEO4J_DB_NAME")
-        uri = os.environ.get("AURORA_URI")
-        user_id = os.environ.get("USER_ID")
-        auth_key = os.environ.get("NEO4J_AUTH")
-        neo4j_graph_db = GraphDB(db_name, uri, user_id, auth_key)
-        
-        #Get Records from Graph Db query
-        records = neo4j_graph_db.get_keyworsds_graphdb()
+            #Iterate through nodes of Graph DB to query vector db
+            db_name = os.environ.get("NEO4J_DB_NAME")
+            uri = os.environ.get("AURORA_URI")
+            user_id = os.environ.get("USER_ID")
+            auth_key = os.environ.get("NEO4J_AUTH")
+            neo4j_graph_db = GraphDB(db_name, uri, user_id, auth_key)
+            
+            #Get Records from Graph Db query
+            records = neo4j_graph_db.get_keyworsds_graphdb()
 
-        # Loop through results and do something with them
-        for record in records:
-            keyword = record['Keyword']
-            results = pinecond_db.get_vectordb_search_results(keyword)
-            #print(results)
-            #save_file(results, 'data/output/this_is_a_test.txt')
-            pinecond_db.output_search_results_to_file(pdf_prefix, keyword, results, sections)
+            # Loop through results and do something with them
+            for record in records:
+                keyword = record['Keyword']
+                results = pinecond_db.get_vectordb_search_results(keyword)
+                #print(results)
+                #save_file(results, 'data/output/this_is_a_test.txt')
+                pinecond_db.output_search_results_to_file(pdf_prefix, keyword, results, sections)
 
 
     except Exception as e:
