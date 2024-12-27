@@ -14,13 +14,15 @@ import sys
 #from pdfminer.high_level import extract_pages
 #from pdfminer.layout import LTTextContainer, LTChar
 
-from api_caller import call_api, upload_file
+from api_caller import call_api, upload_file, call_unstructured
 from file_util import *
 
 from sentence_transformers import SentenceTransformer
 from data.pinecone_vector_db import PineConeVectorDB
 from data.graph_db import GraphDatabase
 #from data_util import *
+
+from parse_util import html_table_to_json
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -437,27 +439,27 @@ def main():
 
     print('Hello, world from pdf_test_parse main!')
     
-    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
-    output_path = 'data/output/AI_Risk_Management-PDFMINER_PARSE_TEST'
-    convert_pdf_to_json(pdf_path, output_path)
+    # pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    # output_path = 'data/output/AI_Risk_Management-PDFMINER_PARSE_TEST'
+    # convert_pdf_to_json(pdf_path, output_path)
     
-    sys.exit()
+    # sys.exit()
 
-    loaded_pdf_json_doc = load_document_from_json('data/output/AI__json_output_2024-12-16_13-53-51.json')
+    # loaded_pdf_json_doc = load_document_from_json('data/output/AI__json_output_2024-12-16_13-53-51.json')
     
-    for section in loaded_pdf_json_doc.sections:
-        print(section['heading'])
+    # for section in loaded_pdf_json_doc.sections:
+    #     print(section['heading'])
 
-    sections = get_document_sections('data/output/AI__json_output_2024-12-16_13-53-51.json')
+    # sections = get_document_sections('data/output/AI__json_output_2024-12-16_13-53-51.json')
     
-    print(sections)
+    # print(sections)
     
-    embeddings = generate_embeddings(sections)
+    # embeddings = generate_embeddings(sections)
     
-    print(len(embeddings))
+    # print(len(embeddings))
     
         
-    sys.exit()
+    #sys.exit()
 
     # test_files = get_files_from_dir('data/output/downloads',extension='.txt')
 
@@ -467,9 +469,14 @@ def main():
     #     print('Directory was empty.')
 
     # #'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
-    # upload_file("http://localhost:8000/upload", "docs/AI_Risk_Management-NIST.AI.100-1.pdf")
+    #upload_file("http://localhost:8000/upload", "docs/ISO+IEC+23894-2023.pdf")
+    
+    #call_unstructured()
+    
+    html_content = "<table><thead><tr><th></th><th>Principle</th><th>Description (as given in ISO 10 018, Clause 4)</th><th>Implications for the development and use of Al</th></tr></thead><tbody><tr><td>d) d)</td><td>Inclusive Inclusive</td><td>Appropriate and timely involvement of stake- holders enables their knowledge, views and | perceptions to be considered. This results in improved awareness and informed management. in improved awareness and informed risk \n management.</td><td>| Because of the potentially far-reaching im- pacts of Al to stakeholders, it is important |that organizations seek dialog with diverse risk|internal and external groups, both to com- municate harms and benefits, and to incor- porate feedback and awareness into the risk management process. Organizations should also be aware that the use of Al systems can introduce additional stakeholders. The areas in which the knowledge, views and perceptions of stakeholders are of benefit include but are not restricted to: — Machine learning (ML) in particular often relies on the set of data appropriate to fulfil its objectives. Stakeholders can help in the identification of risks regarding the data collection, the processing operations, the source and type of data, and the use of the data for operations, \n situations or where the data subjects can be outliers. The complexity of Al technologies creates challenges related to and transparency explainability of Al systems. The diversity of Al transparency \n further drives these challenges due to characteristics such as multiple types of data modalities, Al model topologies, and transparency and reporting mechanisms that should be selected per stakeholders’ needs. Stakeholders can help to identify the goals and describe the means for enhancing transparency and explainability of Al systems. In certain cases, these goals and means can be generalized across the use case and different stakeholdersinvolved. In other cases, stakeholder segmentation of transparency frameworks and reporting mechanisms can be tailored torelevant personas (e.g. “regulators”, “business owners”, “model risk evaluators”) per the use case. Using Al systems for automated decision-making can directly affect internal and external stakeholders. Such stakeholders can provide their views and perceptions concerning, for example, where human oversight can be needed. Stakeholders can help in defining fairness criteria and also help to identify what constitutes bias porate feedback and awareness into the risk \n management process.\n use of AI systems can introduce additional \n stakeholders.\n the \n risks \n particular  situations  or  where  the \n related \n and \n and \n to \n of \n “business  owners”, \n “model \n risk</td></tr></tbody></table>"
+    html_table_to_json(html_content)
 
-
+    sys.exit()
     # json_response = call_api("http://localhost:8000/extract2", "uploaded_AI_Risk_Management-NIST.AI.100-1.pdf/24-36/stream")
 
 
