@@ -1,6 +1,8 @@
 import requests
 from requests import JSONDecodeError
 import pdf_parser_logger as log
+import json
+import os
 
 def call_api(base_url, params):
 
@@ -52,3 +54,23 @@ def upload_file(upload_url, pdf_file_path):
     except FileNotFoundError as e:
         log.logger.error(f"upload_file - {e}")
         raise
+    
+    
+def call_unstructured():
+
+
+        url = "https://api.unstructured.io/general/v0/general"
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "multipart/form-data",
+            "unstructured-api-key": os.environ.get("UNSTRUCTURED_API_KEY")
+        }
+        files = {"files": ("document.pdf",open("docs/ISO+IEC+23894-2023.pdf", "rb"))}
+        
+        response = requests.post(url, headers=headers, files=files)
+
+        # Parse the JSON response
+        data = response.json()
+        tables = data.get("tables", [])
+        for table in tables:
+            print(json.dumps(table, indent=4))
