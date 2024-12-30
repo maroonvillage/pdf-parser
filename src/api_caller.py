@@ -1,8 +1,10 @@
 import requests
 from requests import JSONDecodeError
-import pdf_parser_logger as log
+import logger_config as log
 import json
 import os
+import logging
+from typing import Dict, Any
 
 def call_api(base_url, params):
 
@@ -56,21 +58,52 @@ def upload_file(upload_url, pdf_file_path):
         raise
     
     
-def call_unstructured():
+def call_unstructured(pdf_path: str) -> Dict[str, Any]:
+    """
+    Calls the Unstructured API to process a PDF document and returns the API response.
 
+    This function sends a POST request to the Unstructured API with a PDF document and
+    returns the API response as a dictionary.
 
-        url = "https://api.unstructured.io/general/v0/general"
+    Parameters:
+       pdf_path (str): The path to the PDF file.
+
+    Returns:
+        Dict[str, Any]: The JSON response from the API as a dictionary, or an empty dict if an error occurs.
+    """
+    log = logging.getLogger(__name__)
+    url = "https://api.unstructured.io/general/v0/general"
+
+    try:
+        api_key = os.environ.get("UNSTRUCTURED_API_KEY")
+        if not api_key:
+            log.error("Unstructured API key is missing in environment variables.")
+            return {}
+
         headers = {
             "accept": "application/json",
-            "Content-Type": "multipart/form-data",
-            "unstructured-api-key": os.environ.get("UNSTRUCTURED_API_KEY")
+            "unstructured-api-key": api_key,
         }
-        files = {"files": ("document.pdf",open("docs/ISO+IEC+23894-2023.pdf", "rb"))}
-        
-        response = requests.post(url, headers=headers, files=files)
 
-        # Parse the JSON response
-        data = response.json()
-        tables = data.get("tables", [])
-        for table in tables:
-            print(json.dumps(table, indent=4))
+        with open(pdf_path, "rb") as f:
+            files = {"files": ("document.pdf", f)}
+            response = requests.post(url, headers=headers, files=files)
+            response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            
+            data = response.json()
+
+            log.info(f"Successfully called Unstructured API for file: {pdf_path}")
+            log.debug(f"API response: {data}")
+            return data
+    except FileNotFoundError:
+        log.error(f"File not found: {pdf_path}")
+        return {}
+    except requests.exceptions.RequestException as e:
+        log.error(f"API request failed: {e}")
+        return {}
+    except json.JSONDecodeError as e:
+         log.error(f"JSON Decode error: {e}")
+         return {}
+    except Exception as e:
+         log.error(f"An unexpected error occurred: {e}")
+         return {}

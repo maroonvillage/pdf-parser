@@ -1,4 +1,6 @@
 import json
+import re
+#from parse_util import strip_non_alphanumeric
 
 class Figure:
     def __init__(self, caption):
@@ -34,8 +36,17 @@ class Document:
 
     # Method to find a section by title
     def find_section_by_heading(self, heading):
+        if heading is None:
+            return None
+        # Define the regex pattern to match the specific pattern in the heading
+        clean_heading = re.sub(r'[\W_]+$', '', heading)
+        pattern = fr'\b{clean_heading}\b'
+        
         for section in self.sections:
-            if section.heading.endswith(heading):
+            # Use re.search to find the pattern in the text 
+            match = re.search(pattern, section.heading, re.IGNORECASE)
+            
+            if match:
                 return section
         return None  # If no section with the given title is found
     

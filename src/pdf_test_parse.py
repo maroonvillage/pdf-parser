@@ -22,7 +22,7 @@ from data.pinecone_vector_db import PineConeVectorDB
 from data.graph_db import GraphDatabase
 #from data_util import *
 
-from parse_util import html_table_to_json
+from parse_util import *
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -178,21 +178,6 @@ def detect_tables(pdf_file_path):
     except FileNotFoundError: # Code to handle the exception 
         print("There is no file or the path is incorrect!")
 
-def extract_pdf_pages(pdf_file_path):
-
-    try:
-        for page_layout in extract_pages(pdf_file_path):
-            for element in page_layout:
-                if isinstance(element, LTTextContainer):
-                    for text_line in element:
-                        for character in text_line:
-                            if isinstance(character, LTChar):
-                                print(character.fontname)
-                                print(character.size)
-
-    except FileNotFoundError: # Code to handle the exception 
-        print("There is no file or the path is incorrect!")
-
 
 def extract_toc_test():
 
@@ -245,8 +230,6 @@ def alphanum_key(filename):
     parts = re.split(r'(\d+)', filename)
     # Convert numeric parts to integers
     return [int(part) if part.isdigit() else part for part in parts]
-
-
 
 
 def collate_output_tables(directory):
@@ -433,11 +416,52 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path):
     except FileNotFoundError: # Code to handle the exception 
         print("There is no file or the path is incorrect!")
 
+import re
+
+def find_string(text, string_to_find):
+    
+    # Define the regex pattern to match the word "Title"
+    pattern = fr'\b{string_to_find}\b'
+    
+    # Use re.search to find the pattern in the text
+    match = re.search(pattern, text)
+    
+    if match:
+        return f"Found '{match.group()}' at position {match.start()} to {match.end()}"
+    else:
+        return "Title not found"
+
+
 
 
 def main():
 
     print('Hello, world from pdf_test_parse main!')
+    
+    str1 = "AI_Risk_Management-NIST.AI.100-1"
+    str2 = "ISO+IEC+23894-2023"
+    
+    stripped_str1 = strip_non_alphanumeric(str1)
+    
+    print(stripped_str1)
+    
+    stripped_str2 = strip_non_alphanumeric(str2)
+    
+    print(stripped_str2)
+    
+    
+    # Example usage
+    sample_text = "Appendix: A: Descriptions of AI Actor Tasks from Figures 2 and 3"
+    result = find_string(sample_text, "Appendix: A")
+    print(result)
+
+
+    # Example usage
+    sample_text = "Appendix A:"
+    cleaned_text = strip_non_alphanumeric_end(sample_text)
+    print(cleaned_text)
+    
+    sys.exit()
     
     # pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
     # output_path = 'data/output/AI_Risk_Management-PDFMINER_PARSE_TEST'
@@ -472,9 +496,11 @@ def main():
     #upload_file("http://localhost:8000/upload", "docs/ISO+IEC+23894-2023.pdf")
     
     #call_unstructured()
-    
-    html_content = "<table><thead><tr><th></th><th>Principle</th><th>Description (as given in ISO 10 018, Clause 4)</th><th>Implications for the development and use of Al</th></tr></thead><tbody><tr><td>d) d)</td><td>Inclusive Inclusive</td><td>Appropriate and timely involvement of stake- holders enables their knowledge, views and | perceptions to be considered. This results in improved awareness and informed management. in improved awareness and informed risk \n management.</td><td>| Because of the potentially far-reaching im- pacts of Al to stakeholders, it is important |that organizations seek dialog with diverse risk|internal and external groups, both to com- municate harms and benefits, and to incor- porate feedback and awareness into the risk management process. Organizations should also be aware that the use of Al systems can introduce additional stakeholders. The areas in which the knowledge, views and perceptions of stakeholders are of benefit include but are not restricted to: — Machine learning (ML) in particular often relies on the set of data appropriate to fulfil its objectives. Stakeholders can help in the identification of risks regarding the data collection, the processing operations, the source and type of data, and the use of the data for operations, \n situations or where the data subjects can be outliers. The complexity of Al technologies creates challenges related to and transparency explainability of Al systems. The diversity of Al transparency \n further drives these challenges due to characteristics such as multiple types of data modalities, Al model topologies, and transparency and reporting mechanisms that should be selected per stakeholders’ needs. Stakeholders can help to identify the goals and describe the means for enhancing transparency and explainability of Al systems. In certain cases, these goals and means can be generalized across the use case and different stakeholdersinvolved. In other cases, stakeholder segmentation of transparency frameworks and reporting mechanisms can be tailored torelevant personas (e.g. “regulators”, “business owners”, “model risk evaluators”) per the use case. Using Al systems for automated decision-making can directly affect internal and external stakeholders. Such stakeholders can provide their views and perceptions concerning, for example, where human oversight can be needed. Stakeholders can help in defining fairness criteria and also help to identify what constitutes bias porate feedback and awareness into the risk \n management process.\n use of AI systems can introduce additional \n stakeholders.\n the \n risks \n particular  situations  or  where  the \n related \n and \n and \n to \n of \n “business  owners”, \n “model \n risk</td></tr></tbody></table>"
-    html_table_to_json(html_content)
+    unstructured_json_file = 'data/output/downloads/unstructured_response_AI_RMF.json'
+    extract_response = read_json_file(unstructured_json_file)  
+    extract_text_from_html(extract_response)
+   # html_content = "<table><thead><tr><th></th><th>Principle</th><th>Description (as given in ISO 10 018, Clause 4)</th><th>Implications for the development and use of Al</th></tr></thead><tbody><tr><td>d) d)</td><td>Inclusive Inclusive</td><td>Appropriate and timely involvement of stake- holders enables their knowledge, views and | perceptions to be considered. This results in improved awareness and informed management. in improved awareness and informed risk \n management.</td><td>| Because of the potentially far-reaching im- pacts of Al to stakeholders, it is important |that organizations seek dialog with diverse risk|internal and external groups, both to com- municate harms and benefits, and to incor- porate feedback and awareness into the risk management process. Organizations should also be aware that the use of Al systems can introduce additional stakeholders. The areas in which the knowledge, views and perceptions of stakeholders are of benefit include but are not restricted to: — Machine learning (ML) in particular often relies on the set of data appropriate to fulfil its objectives. Stakeholders can help in the identification of risks regarding the data collection, the processing operations, the source and type of data, and the use of the data for operations, \n situations or where the data subjects can be outliers. The complexity of Al technologies creates challenges related to and transparency explainability of Al systems. The diversity of Al transparency \n further drives these challenges due to characteristics such as multiple types of data modalities, Al model topologies, and transparency and reporting mechanisms that should be selected per stakeholders’ needs. Stakeholders can help to identify the goals and describe the means for enhancing transparency and explainability of Al systems. In certain cases, these goals and means can be generalized across the use case and different stakeholdersinvolved. In other cases, stakeholder segmentation of transparency frameworks and reporting mechanisms can be tailored torelevant personas (e.g. “regulators”, “business owners”, “model risk evaluators”) per the use case. Using Al systems for automated decision-making can directly affect internal and external stakeholders. Such stakeholders can provide their views and perceptions concerning, for example, where human oversight can be needed. Stakeholders can help in defining fairness criteria and also help to identify what constitutes bias porate feedback and awareness into the risk \n management process.\n use of AI systems can introduce additional \n stakeholders.\n the \n risks \n particular  situations  or  where  the \n related \n and \n and \n to \n of \n “business  owners”, \n “model \n risk</td></tr></tbody></table>"
+    #html_table_to_json(html_content)
 
     sys.exit()
     # json_response = call_api("http://localhost:8000/extract2", "uploaded_AI_Risk_Management-NIST.AI.100-1.pdf/24-36/stream")
@@ -508,6 +534,32 @@ def main():
     local_path = 'data/output/downloads'
 
     downloads = 'data/output/downloads'
+
+""" def extract_text_from_html(extract_response):
+    if(extract_response):
+        #TODO: Make call to extract HTML table markup from JSON and persist as JSON in a new file
+        tables = []
+        for table in extract_response:
+            #tables.append(table)
+            if(table['type'] == "Table"):
+                meta_data = table['metadata']
+                title = f'<h1>{table['text']}</h1>'
+                html_mark_up = f'{title} {meta_data['text_as_html']}'
+                #print(meta_data['text_as_html'])
+                tables.append(html_mark_up)
+                #print()
+        #html_table_to_json(tables)
+    table_file_path = 'data/output'
+    
+    
+    count = 1
+    for table in tables:
+        print(table)
+        print()
+        file_name = generate_filename(f"extracted_tables_{count}","json")
+        full_path = os.path.join(table_file_path, file_name)
+        html_table_to_json(table, full_path)
+        count += 1 """
 
 
     #files =  os.listdir(downloads)

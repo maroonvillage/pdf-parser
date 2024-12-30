@@ -1,7 +1,11 @@
 import os
 import json
 from datetime import datetime
-import docker
+import logging
+from logger_config import configure_logger
+
+from typing import Dict, Any
+logging.basicConfig(level=logging.INFO)
 from document import Document
 
 def check_for_file(file_path):
@@ -13,23 +17,30 @@ def check_for_file(file_path):
 
 
 def read_lines_into_list(file_path):
+    """
+    Reads lines from a file and returns them as a list, stripping leading/trailing whitespace.
 
-    my_dict = {}
-    keys = []
-    values = []
-    line_no = 1
-    # Open the file in read mode
-    with open(file_path, 'r') as file:
-        # Read and print each line one by one
-        for line in file:
-            #keys.append(line_no)
-            stripped_line = line.strip()
-            values.append(stripped_line)
-            #print(line.strip())  # Use strip() to remove any leading/trailing whitespace
-        print('Finished reading the file.')
+    Parameters:
+    file_path (str): The path to the file.
 
-    #print(values)
-    return values
+    Returns:
+    list: A list of strings, where each string is a line from the file with whitespace stripped.
+    """
+    logger = configure_logger(__name__)
+    lines = []
+    try:
+        with open(file_path, 'r') as file:
+            for line in file:
+                stripped_line = line.strip()
+                lines.append(stripped_line)
+            logger.info(f'Finished reading the file {file_path}.')
+            return lines
+    except FileNotFoundError:
+        logger.error(f"File not found: {file_path}")
+        raise
+    except Exception as e:
+        logger.error(f"An error occurred while reading file: {file_path}. Error: {e}")
+        raise
 
 
 def write_document_loader_docs_to_file(docs, file_path):
@@ -43,20 +54,32 @@ def write_document_loader_docs_to_file(docs, file_path):
             file.write("\n")
 
 
-def save_file(file_path, text):
-    # Open a file in write mode
-    with open(file_path, 'w') as file:
-        # Write some text to the file
-        file.write(text)
+def save_file(file_path: str, text: Any) -> None:
+    """
+    Saves a string or other data to a file.
 
-    print('Text written to file successfully.')
+    Parameters:
+        file_path (str): The path to the file.
+        text (Any): The text or data to write to the file.
 
+    Returns:
+        None
+    """
+    log = logging.getLogger(__name__)
+    try:
+        with open(file_path, 'w', encoding='utf-8') as file:
+            if isinstance(text, str):
+                file.write(text)
+            else:
+                file.write(str(text))
+            log.info(f"Successfully written data to file: {file_path}")
+    except FileNotFoundError:
+        log.error(f"File not found: {file_path}")
+    except PermissionError as e:
+        log.error(f"Permission error: {e} when saving to file: {file_path}")
+    except Exception as e:
+         log.error(f"An unexpected error occurred: {e} when saving to file: {file_path}")
 
-def save_to_json_file(data, output_file):
-    """Save processed data to a JSON file."""
-    with open(output_file, 'w', encoding='utf-8') as file:
-        #json.dump(data, file, ensure_ascii=False, indent=2)
-        file.write(data)
 
 def save_json_file(data, output_file):
     """Save processed data to a JSON file."""
@@ -123,8 +146,21 @@ def load_document_from_json(file_path):
         data = json.load(f)
         return Document.from_dict(data)
 
-def read_json_file(file_path):
-    """Read from a JSON file."""
-    with open(file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-    return data
+def read_json_file(file_path:str) -> Dict[str,Any]:
+    """Reads and parses a JSON file, returning its content."""
+    import json
+    log = logging.getLogger(__name__)
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            log.debug(f"Loaded json file: {file_path}")
+            return data
+    except FileNotFoundError:
+         log.error(f"File not found: {file_path}")
+         return {}
+    except json.JSONDecodeError as e:
+         log.error(f"JSONDecodeError: {e} when loading file: {file_path}")
+         return {}
+    except Exception as e:
+        log.error(f"An unexpected error occurred: {e} when processing file: {file_path}")
+        return {}
