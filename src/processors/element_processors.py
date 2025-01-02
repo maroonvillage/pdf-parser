@@ -315,3 +315,6 @@ class ContainerProcessor(TextElementProcessor):
 class TextGroupTBRLProcessor(TextElementProcessor):
      def process_element(self, element, document: Document, current_section_header: str, wfile):
          wfile.write(f"Found Text Group TBRL ... {element.bbox}\n")
+class CurvedLineProcessor(TextElementProcessor):
+     def process_element(self, element, document: Document, current_section_header: str, wfile):
+         wfile.write(f"Found Curved Line found ... {element.bbox}\n")
