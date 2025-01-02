@@ -4,7 +4,7 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import TextConverter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
-    LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTComponent, LTContainer
+    LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTCurve, LTContainer
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdftypes import resolve1
@@ -154,6 +154,8 @@ def get_element_processor(element, nlp=None, config=None):
         return ContainerProcessor()
     elif isinstance(element,LTTextGroupTBRL):
         return TextGroupTBRLProcessor()
+    elif isinstance(element,LTCurve):
+        return CurvedLineProcessor()
     else:
         raise ValueError(f"Unsupported element type: {element}")
     
@@ -254,11 +256,11 @@ def get_document_sections(file_path: str) -> List[str]:
     Returns:
         List[str]: A list of formatted document sections.
     """
-    log = logging.getLogger(__name__)
+    logger = configure_logger("get_document_sections")
     try:
         json_data = read_json_file(file_path)
         if not json_data or "sections" not in json_data:
-            log.warning(f"Invalid or missing sections data in JSON file: {file_path}")
+            logger.warning(f"Invalid or missing sections data in JSON file: {file_path}")
             return []
 
         sections = []
@@ -268,20 +270,20 @@ def get_document_sections(file_path: str) -> List[str]:
             figures = [fig.get("caption", "") for fig in section.get("figures",[])]
             
             sections.append(f"{heading}\n{paragraphs}\n{' '.join(figures)}")
-            log.debug(f"Extracted section: {heading}")
+            logger.debug(f"Extracted section: {heading}")
             
         return sections
     except FileNotFoundError:
-        log.error(f"File not found: {file_path}")
+        logger.error(f"File not found: {file_path}")
         return []
     except TypeError as e:
-         log.error(f"TypeError: {e} invalid json format {file_path}")
+         logger.error(f"TypeError: {e} invalid json format {file_path}")
          return []
     except KeyError as e:
-         log.error(f"KeyError: {e} invalid json format {file_path}")
+         logger.error(f"KeyError: {e} invalid json format {file_path}")
          return []
     except Exception as e:
-        log.error(f"An unexpected error occurred: {e} when processing file: {file_path}")
+        logger.error(f"An unexpected error occurred: {e} when processing file: {file_path}")
         return []
 
 def generate_embeddings(text_chunks: List[str], model_name: str = 'sentence-transformers/all-MiniLM-L6-v2') -> np.ndarray:
@@ -295,16 +297,16 @@ def generate_embeddings(text_chunks: List[str], model_name: str = 'sentence-tran
     Returns:
         np.ndarray: A numpy array containing the generated embeddings.
     """
-    log = logging.getLogger(__name__)
+    logger = configure_logger("generate_embeddings")
     try:
-        log.info(f"Loading SentenceTransformer model: {model_name}")
+        logger.info(f"Loading SentenceTransformer model: {model_name}")
         model = SentenceTransformer(model_name)
-        log.debug(f"Successfully loaded SentenceTransformer model: {model_name}")
+        logger.debug(f"Successfully loaded SentenceTransformer model: {model_name}")
         section_embeddings = model.encode(text_chunks)
-        log.info(f"Generated embeddings for {len(text_chunks)} text chunks.")
+        logger.info(f"Generated embeddings for {len(text_chunks)} text chunks.")
         return section_embeddings
     except Exception as e:
-        log.error(f"An error occurred while generating embeddings using model: {model_name}. Error: {e}")
+        logger.error(f"An error occurred while generating embeddings using model: {model_name}. Error: {e}")
         return np.array([]) # Return an empty numpy array
 
         
@@ -318,7 +320,7 @@ def main():
     input_folder = 'docs'
     output_folder = 'data/output'
 
-    pdf_file_name = 'ISO+IEC+23894-2023.pdf' 
+    pdf_file_name = 'AI_Risk_Management-NIST.AI.100-1.pdf' 
     #'AI_Risk_Management-NIST.AI.100-1.pdf'
     #'ISO+IEC+23894-2023.pdf' 
     
@@ -379,7 +381,7 @@ def main():
             
             logger.info(f'PDF text has been sucessfully converted to JSON {json_output_path}.')
             
-            sys.exit(0)
+           
 
             #Once a call to the Unstructured API is made, the response is saved to a file.  
             # This precludes the need to make repeated calls to the API.
@@ -387,16 +389,18 @@ def main():
             modified_pdf_filename = strip_non_alphanumeric(pdf_file_name.replace(".pdf",""))
             unstructured_json_file = os.path.join(dowloads_folder, f'{modified_pdf_filename}_unstructured_response.json')
             if os.path.exists(unstructured_json_file):
-                log.logger.info(f'Unstructured JSON response file exists: {unstructured_json_file}. Reading from file.')
+                logger.info(f'Unstructured JSON response file exists: {unstructured_json_file}. Reading from file.')
                 extract_response = read_json_file(unstructured_json_file)
             else:
-                log.info(f'Unstructured JSON response file does not exist: {unstructured_json_file}. Making call to Unstructured API.')
+                logger.info(f'Unstructured JSON response file does not exist: {unstructured_json_file}. Making call to Unstructured API.')
                 extract_response = call_unstructured(pdf_path)
                 save_file(unstructured_json_file, json.dumps(extract_response, indent=4))  # Save the response to a file
             
             
-               
-            extract_html_tables(extract_response)
+            #Extract tables from the response of the Unstructured API and save to JSON file.
+            extract_html_tables(extract_response, output_folder)
+            
+           
 
             #loaded_pdf_json_doc = load_document_from_json(json_output_path)
 
@@ -404,12 +408,17 @@ def main():
             sections = get_document_sections(json_output_path)
             
             embeddings = generate_embeddings(sections)
+            # i = 1
+            # for embedding in embeddings.tolist():
+            #     print([(str(i),embedding)])
+            #     i += 1
+                
             
-
             pinecone_api_key=os.environ.get("PINECONE_API_KEY")
             pinecond_db = PineConeVectorDB(pinecone_api_key,pdf_prefix)
-            #print(pinecond_db.index_name)
+            print(pinecond_db.index_name)
             pinecond_db.add_embeddings_to_pinecone_index(embeddings)
+            
             
 
             #Iterate through nodes of Graph DB to query vector db
@@ -421,16 +430,24 @@ def main():
             
             #Get Records from Graph Db query
             records = neo4j_graph_db.get_keyworsds_graphdb()
-
+            
+            logger.info(f'Number of records returned from Graph DB: {len(records)}')
+            
+            
+            
+            i = 0
             # Loop through results and do something with them
             for record in records:
                 keyword = record['Keyword']
                 results = pinecond_db.get_vectordb_search_results(keyword)
-                #print(results)
-                #save_file(results, 'data/output/this_is_a_test.txt')
+                print(results)
+                
+                save_file(f'data/output/this_is_a_test_{str(i)}.json', results)
                 pinecond_db.output_search_results_to_file(pdf_prefix, keyword, results, sections)
-
-
+                i += 1
+                
+            sys.exit(0)
+            
     except Exception as e:
         print(f"An error occurred: {e}")
         logger.error(f"An error occurred: {e}")
