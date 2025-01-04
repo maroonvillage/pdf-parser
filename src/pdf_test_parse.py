@@ -438,7 +438,7 @@ def main():
 
     print('Hello, world from pdf_test_parse main!')
     
-    str1 = "AI_Risk_Management-NIST.AI.100-1"
+    """     str1 = "AI_Risk_Management-NIST.AI.100-1"
     str2 = "ISO+IEC+23894-2023"
     
     stripped_str1 = strip_non_alphanumeric(str1)
@@ -459,8 +459,331 @@ def main():
     # Example usage
     sample_text = "Appendix A:"
     cleaned_text = strip_non_alphanumeric_end(sample_text)
-    print(cleaned_text)
+    print(cleaned_text) """
+
+    sample_json =  [
+            {
+            "type": "Header",
+            "element_id": "f9419a7997760d57b39c54b560a5e57d",
+            "text": "NIST AI 100-1",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Header",
+            "element_id": "c3e2735004b91871f0b7fa8844219e75",
+            "text": "AI RMF 1.0",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "2f53df576aeab76f25c714a31c9b4bfd",
+            "text": "GOVERN is a cross-cutting function that is infused throughout AI risk management and enables the other functions of the process. Aspects of GOVERN, especially those related to compliance or evaluation, should be integrated into each of the other functions. Attention to governance is a continual and intrinsic requirement for effective AI risk management over an AI system’s lifespan and the organization’s hierarchy.",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "b3e86bbc15785f06c6f27704af31655b",
+            "text": "Strong governance can drive and enhance internal practices and norms to facilitate orga- nizational risk culture. Governing authorities can determine the overarching policies that direct an organization’s mission, goals, values, culture, and risk tolerance. Senior leader- ship sets the tone for risk management within an organization, and with it, organizational culture. Management aligns the technical aspects of AI risk management to policies and operations. Documentation can enhance transparency, improve human review processes, and bolster accountability in AI system teams.",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "d43e04a85a16f9ab8b98d920e3a65b4f",
+            "text": "After putting in place the structures, systems, processes, and teams described in the GOV- ERN function, organizations should benefit from a purpose-driven culture focused on risk understanding and management. It is incumbent on Framework users to continue to ex- ecute the GOVERN function as knowledge, cultures, and needs or expectations from AI actors evolve over time.",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "2ea9b826d62ec84004cd1c0ed13252a4",
+            "text": "Practices related to governing AI risks are described in the NIST AI RMF Playbook. Table 1 lists the GOVERN function’s categories and subcategories.",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "c4eaa234ad901eb1b45ab3b019915de2",
+            "text": "Table 1: Categories and subcategories for the GOVERN function.",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Table",
+            "element_id": "af1102cf6c45104f8b86f228df9b63cb",
+            "text": "Categories Subcategories GOVERN 1: GOVERN 1.1: Legal and regulatory requirements involving AI Policies, processes, are understood, managed, and documented. procedures, and practices across the organization related to the mapping, measuring, and managing of AI risks are in place, GOVERN 1.2: The characteristics of trustworthy AI are inte- grated into organizational policies, processes, procedures, and practices. GOVERN 1.3: Processes, procedures, and practices are in place to determine the needed level of risk management activities based on the organization’s risk tolerance. transparent, and GOVERN 1.4: The risk management process and its outcomes are implemented established through transparent policies, procedures, and other effectively. controls based on organizational risk priorities.",
+            "metadata": {
+                "text_as_html": "<table><thead><tr><th>Categories</th><th>Subcategories</th></tr></thead><tbody><tr><td>GOVERN 1:</td><td>GOVERN 1.1: Legal and regulatory requirements involving Al</td></tr><tr><td>managing of Al risks are in place,</td><td>to determine the needed level of risk management activities based on the organization’s risk tolerance.</td></tr><tr><td>transparent, and implemented\n effectively.</td><td>GOVERN 1.4: The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities.</td></tr></tbody></table>",
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "82133fbe6be3f2df697d96b40878c00b",
+            "text": "Continued on next page",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "PageNumber",
+            "element_id": "3dd984e8964241732778b43f7324ed13",
+            "text": "Page 22",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 27,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Header",
+            "element_id": "d578ed3de760385975da804c89b63327",
+            "text": "NIST AI 100-1",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 28,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Header",
+            "element_id": "56279384b2f8fe6311da9635526a27c0",
+            "text": "AI RMF 1.0",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 28,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "83a26ab6e9a5bb9ec025cfcc92055d12",
+            "text": "Table 1: Categories and subcategories for the GOVERN function. (Continued)",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 28,
+                "parent_id": "56279384b2f8fe6311da9635526a27c0",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Table",
+            "element_id": "01f12090c2cdb8a847aab7a27319527f",
+            "text": "Categories Subcategories GOVERN 1.5: Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and or- ganizational roles and responsibilities clearly defined, including determining the frequency of periodic review. GOVERN 1.6: Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. GOVERN 1.7: Processes and procedures are in place for decom- missioning and phasing out AI systems safely and in a man- ner that does not increase risks or decrease the organization’s trustworthiness. GOVERN 2: GOVERN 2.1: Roles and responsibilities and lines of communi- Accountability cation related to mapping, measuring, and managing AI risks are structures are in documented and are clear to individuals and teams throughout place so that the the organization. appropriate teams and individuals are empowered, responsible, and trained for mapping, measuring, and managing AI risks. GOVERN 2.2: The organization’s personnel and partners receive AI risk management training to enable them to perform their du- ties and responsibilities consistent with related policies, proce- dures, and agreements. GOVERN 2.3: Executive leadership of the organization takes re- sponsibility for decisions about risks associated with AI system development and deployment. GOVERN 3: GOVERN 3.1: Decision-making related to mapping, measuring, Workforce diversity, and managing AI risks throughout the lifecycle is informed by a equity, inclusion, diverse team (e.g., diversity of demographics, disciplines, expe- and accessibility rience, expertise, and backgrounds). processes are prioritized in the mapping, measuring, and GOVERN 3.2: Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configura- tions and oversight of AI systems. managing of AI risks throughout the lifecycle. GOVERN 4: GOVERN 4.1: Organizational policies and practices are in place Organizational to foster a critical thinking and safety-first mindset in the design, teams are committed development, deployment, and uses of AI systems to minimize to a culture potential negative impacts.",
+            "metadata": {
+                "text_as_html": "<table><thead><tr><th>Categories</th><th>Subcategories</th></tr></thead><tbody><tr><td></td><td>GOVERN 1.5: Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and or- ganizational roles and responsibilities clearly defined, including determining the frequency of periodic review.</td></tr><tr><td></td><td>GOVERN 1.6: Mechanisms are in place to inventory Al systems and are resourced according to organizational risk priorities.</td></tr><tr><td></td><td>GOVERN 1.7: Processes and procedures are in place for decom- missioning and phasing out Al systems safely and in a man- ner that does not increase risks or decrease the organization’s trustworthiness.</td></tr><tr><td>GOVERN 2: Accountability\n structures are in place so that the</td><td>GOVERN 2.1: Roles and responsibilities and lines of communi- cation related to mapping, measuring, and managing Al risks are documented and are clear to individuals and teams throughout the organization.</td></tr><tr><td rowspan=\"2\">appropriate teams and individuals are empowered,\n responsible, and trained for mapping, measuring, and managing Al risks.</td><td>GOVERN 2.2: The organization’s personnel and partners receive Al risk management training to enable them to perform their du- ties and responsibilities consistent with related policies, proce- dures, and agreements.</td></tr><tr><td>GOVERN 2.3: Executive leadership of the organization takes re- sponsibility for decisions about risks associated with Al system development and deployment.</td></tr><tr><td>GOVERN 3: Workforce diversity, equity, inclusion, and accessibility</td><td>GOVERN 3.1: Decision-making related to mapping, measuring, and managing Al risks throughout the lifecycle is informed by a diverse team (e.g., diversity of demographics, disciplines, expe- rience, expertise, and backgrounds).</td></tr><tr><td>processes are prioritized in the mapping,\n measuring, and managing of Al risks throughout the lifecycle.</td><td>GOVERN 3.2: Policies and procedures are in place to define and differentiate roles and responsibilities for human-Al configura- tions and oversight of Al systems.</td></tr><tr><td>GOVERN 4: Organizational\n teams are committed to a culture</td><td>GOVERN 4.1: Organizational policies and practices are in place to foster a critical thinking and safety-first mindset in the design, development, deployment, and uses of Al systems to minimize potential negative impacts.</td></tr></tbody></table>",
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 28,
+                "parent_id": "56279384b2f8fe6311da9635526a27c0",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "4666aaf82956fff651edd42b2c9c0f4e",
+            "text": "Continued on next page",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 28,
+                "parent_id": "56279384b2f8fe6311da9635526a27c0",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "PageNumber",
+            "element_id": "874d456f3659385af127b6720bbbd75b",
+            "text": "Page 23",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 28,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Header",
+            "element_id": "12db5ca051a089ec8354e8532c9dc9ef",
+            "text": "NIST AI 100-1",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 29,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Header",
+            "element_id": "14b86c3261f8f22dfa3b53eec3852d26",
+            "text": "AI RMF 1.0",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 29,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "d1b51c4b895c6efda7a394f29ef76f96",
+            "text": "Table 1: Categories and subcategories for the GOVERN function. (Continued)",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 29,
+                "parent_id": "14b86c3261f8f22dfa3b53eec3852d26",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Table",
+            "element_id": "12e48dd913152b8e8107345b5389db69",
+            "text": "Categories Subcategories that considers and GOVERN 4.2: Organizational teams document the risks and po- communicates AI tential impacts of the AI technology they design, develop, deploy, risk. evaluate, and use, and they communicate about the impacts more broadly. GOVERN 4.3: Organizational practices are in place to enable AI testing, identification of incidents, and information sharing. GOVERN 5: GOVERN 5.1: Organizational policies and practices are in place Processes are in to collect, consider, prioritize, and integrate feedback from those place for robust external to the team that developed or deployed the AI system engagement with regarding the potential individual and societal impacts related to relevant AI actors. AI risks. GOVERN 5.2: Mechanisms are established to enable the team that developed or deployed AI systems to regularly incorporate adjudicated feedback from relevant AI actors into system design and implementation. GOVERN 6: Policies GOVERN 6.1: Policies and procedures are in place that address and procedures are AI risks associated with third-party entities, including risks of in- in place to address fringement of a third-party’s intellectual property or other rights. AI risks and benefits arising from third-party software and data and other GOVERN 6.2: Contingency processes are in place to handle failures or incidents in third-party data or AI systems deemed to be high-risk. supply chain issues.",
+            "metadata": {
+                "text_as_html": "<table><thead><tr><th>Categories</th><th>Subcategories</th></tr></thead><tbody><tr><td>that considers and communicates Al risk</td><td>GOVERN 4.2: Organizational teams document the risks and po- tential impacts of the AI technology they design, develop, deploy, evaluate, and use, and they communicate about the impacts more broadly.\n 4.3: Organizational practices in place enable Al</td></tr><tr><td rowspan=\"2\">GOVERN 5: Processes are in place for robust engagement with relevant AT actors.</td><td>GOVERN 5.1: Organizational policies and practices are in place to collect, consider, prioritize, and integrate feedback from those external to the team that developed or deployed the AI system regarding the potential individual and societal impacts related to Al risks.</td></tr><tr><td>GOVERN 5.2: Mechanisms are established to enable the team that developed or deployed Al systems to regularly incorporate adjudicated feedback from relevant Al actors into system design and and implementation.</td></tr><tr><td>GOVERN 6: Policies and procedures are in place to address</td><td>GOVERN 6.1: Policies and procedures are in place that address Al risks associated with third-party entities, including risks of in- fringement of a third-party’s intellectual property or other rights.</td></tr><tr><td>Al risks and benefits arising from third-party software and data and other supply chain issues.</td><td>GOVERN 6.2: Contingency processes are in place to handle failures or incidents in third-party data or Al systems deemed to be high-risk.</td></tr></tbody></table>",
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 29,
+                "parent_id": "14b86c3261f8f22dfa3b53eec3852d26",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "Title",
+            "element_id": "c3a2366f3279d6f9f13a28564cede3d9",
+            "text": "5.2 Map",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 29,
+                "parent_id": "14b86c3261f8f22dfa3b53eec3852d26",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "NarrativeText",
+            "element_id": "5400f86816779fd118e953a069d0741a",
+            "text": "The MAP function establishes the context to frame risks related to an AI system. The AI lifecycle consists of many interdependent activities involving a diverse set of actors (See Figure 3). In practice, AI actors in charge of one part of the process often do not have full visibility or control over other parts and their associated contexts. The interdependencies between these activities, and among the relevant AI actors, can make it difficult to reliably anticipate impacts of AI systems. For example, early decisions in identifying purposes and objectives of an AI system can alter its behavior and capabilities, and the dynamics of de- ployment setting (such as end users or impacted individuals) can shape the impacts of AI system decisions. As a result, the best intentions within one dimension of the AI lifecycle can be undermined via interactions with decisions and conditions in other, later activities.",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 29,
+                "parent_id": "c3a2366f3279d6f9f13a28564cede3d9",
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        },
+        {
+            "type": "PageNumber",
+            "element_id": "60bd0e06bbd597829e2e1fb27a4bc64e",
+            "text": "Page 24",
+            "metadata": {
+                "filetype": "application/pdf",
+                "languages": [
+                    "eng"
+                ],
+                "page_number": 29,
+                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
+            }
+        }
+    ]
     
+    loaded_json_data = read_json_file('data/output/downloads/AIRiskManagementNISTAI1001_unstructured_response.json')
+    extracted_data = extract_table_data_from_json2(loaded_json_data)
+    #print (json.dumps(extracted_data, indent=2))
+    save_json_file(extracted_data, 'data/output/downloads/extracted_data_AIRMF.json')
     sys.exit()
     
     # pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
