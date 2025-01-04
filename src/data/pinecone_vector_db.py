@@ -7,6 +7,17 @@ import os
 import json
 import numpy as np
 from typing import List, Dict, Any
+from langchain.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_community.chat_models import ChatOllama
+from langchain_core.runnables import RunnablePassthrough
+from langchain.chains import LLMChain
+from langchain_pinecone import Pinecone
+from langchain.embeddings import HuggingFaceEmbeddings
+
+from vector_store_retreiver import VectorStoreRetriever
+
+
 
 class PineConeVectorDB:
     """
@@ -134,6 +145,62 @@ class PineConeVectorDB:
            self._log.error(f"An error occurred while searching Pinecone index: {self.index_name} for query: {query}. Error: {e}")
            return {}
 
+    def get_vectordb_search_results_lc(self, local_model: str, query: str, top_k: int = 5) -> Dict[str, Any]:
+            """
+            Searches the Pinecone vector database for similar vectors to the query, using langchain.
+
+                Parameters:
+                query (str): The query to search for.
+                top_k (int): The number of results to return.
+                Returns:
+                Dict[str, Any]: The search results from Pinecone
+        """
+            log = logging.getLogger(__name__)
+            try:
+                log.info(f"Searching Pinecone index: {self.index_name} for query: {query}")
+                
+                #Prompt Template
+                prompt_template = """
+                Rephrase the following keyword into a question that can be used to retrieve documents related to AI compliance: {keyword}.
+                """
+                prompt = PromptTemplate(
+                    input_variables = ["keyword"],
+                    template=prompt_template
+                )
+                
+                #LLM Chain
+                #TODO: Replace this with your preferred LLM setup, I have used an example for OpenAI
+                # llm = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"), temperature=0)
+                # llm_chain = LLMChain(prompt=prompt, llm = llm)
+                #TODO: remove this placeholder code when an actual model is used.
+                # class MockLLM():
+                #     def invoke(self,input):
+                #         return input
+                # llm = MockLLM() #Placeholder code
+                llm = ChatOllama(model=local_model)
+                llm_chain = LLMChain(prompt=prompt, llm = llm, output_parser=StrOutputParser())
+                
+                #Initialize Embeddings
+                embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-MiniLM-L6-v2")
+
+                #VectorStore
+                vectorstore = Pinecone(self._index, embeddings, "text")
+
+                #Retriever
+                retriever = VectorStoreRetriever(self.index, top_k=top_k) #Use a custom vectorstore
+                
+                #Chain using LLM and Vector store
+                chain = (
+                    {"keyword": RunnablePassthrough()} | llm_chain | retriever
+                )
+                
+                results = chain.invoke(query)
+                log.debug(f"Search results: {results}")
+                return results
+            except Exception as e:
+                log.error(f"An error occurred while searching Pinecone index: {self.index_name} for query: {query}. Error: {e}")
+            return {}
+        
     def output_search_results_to_file(self, prefix: str, keyword: str, search_results: Dict[str, Any], sections: List[str]) -> None:
         """
         Outputs the search results from Pinecone to a JSON file.
