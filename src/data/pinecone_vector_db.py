@@ -12,10 +12,10 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.chat_models import ChatOllama
 from langchain_core.runnables import RunnablePassthrough
 from langchain.chains import LLMChain
-from langchain_pinecone import Pinecone
+#from langchain_pinecone import Pinecone
 from langchain.embeddings import HuggingFaceEmbeddings
 
-from vector_store_retreiver import VectorStoreRetriever
+from data.vector_store_retreiver import VectorStoreRetriever, SentenceTransformerEmbeddings
 
 
 
@@ -135,9 +135,10 @@ class PineConeVectorDB:
             query_embedding = self._model.encode([query]).tolist()
             self._log.debug(f"Query embedding: {query_embedding}")
             search_results = self.index.query(
-                vector=query_embedding,
+                vector=query_embedding[0],
                 top_k=top_k,
-                include_values=True
+                include_values=True,
+                include_metadata=True,
             )
             self._log.debug(f"Search results: {search_results}")
             return search_results
@@ -181,13 +182,14 @@ class PineConeVectorDB:
                 llm_chain = LLMChain(prompt=prompt, llm = llm, output_parser=StrOutputParser())
                 
                 #Initialize Embeddings
-                embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-MiniLM-L6-v2")
-
+                #embeddings = HuggingFaceEmbeddings(model_name = "sentence-transformers/all-MiniLM-L6-v2")
+                embeddings = SentenceTransformerEmbeddings()
+                
                 #VectorStore
-                vectorstore = Pinecone(self._index, embeddings, "text")
-
+                #vectorstore = Pinecone(self._index, embeddings, "text")
+                vectorstore = self._pineconedb
                 #Retriever
-                retriever = VectorStoreRetriever(self.index, top_k=top_k) #Use a custom vectorstore
+                retriever = VectorStoreRetriever(self.index, embeddings, top_k=top_k) #Use a custom vectorstore
                 
                 #Chain using LLM and Vector store
                 chain = (
