@@ -9,7 +9,11 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdftypes import resolve1
 from pdfminer.converter import PDFPageAggregator
+from langchain_core.output_parsers import StrOutputParser
 from sentence_transformers import SentenceTransformer
+from langchain.prompts import PromptTemplate
+from langchain_community.llms import Ollama
+from langchain.chains import LLMChain
 import tempfile
 
 import os
@@ -398,9 +402,12 @@ def main():
             
             
             #Extract tables from the response of the Unstructured API and save to JSON file.
-            extract_html_tables(extract_response, output_folder)
+            #extract_html_tables(extract_response, output_folder)
             
-           
+            #Extract tables from the response of the Unstructured API and save to JSON file.
+            extracted_data = extract_table_data_from_json2(extract_response)
+            
+            save_json_file(extracted_data, json_table_output_path)
 
             #loaded_pdf_json_doc = load_document_from_json(json_output_path)
 
@@ -433,19 +440,34 @@ def main():
             
             logger.info(f'Number of records returned from Graph DB: {len(records)}')
             
+            print(f"Length of sections: {len(sections)}")
             
+            local_model = "llama3"
+            prompt_template = """
+            Rephrase the following keyword into a question that can be used to retrieve documents related to AI compliance: {keyword}.
+            """
+            prompt = PromptTemplate(
+                input_variables = ["keyword"],
+                template=prompt_template
+             )
+            # Loop through results and do something with them
+            llm = Ollama(model=local_model)
+            llm_chain = LLMChain(prompt=prompt, llm = llm, output_parser=StrOutputParser())
             
             i = 0
             # Loop through results and do something with them
             for record in records:
                 keyword = record['Keyword']
-                results = pinecond_db.get_vectordb_search_results(keyword)
-                print(results)
+                refined_query = llm_chain.invoke({"keyword": keyword})
+                results = pinecond_db.get_vectordb_search_results(refined_query)
+                logger.debug(f'modified query for keyword: {keyword} {refined_query}')
+                #logger.debug(f'Search resuls for keyword: {refined_query} {results}')
                 
+            #results = pinecond_db.get_vectordb_search_results("What are the ethical considerations and guidelines in AI compliance?")
                 save_file(f'data/output/this_is_a_test_{str(i)}.json', results)
                 pinecond_db.output_search_results_to_file(pdf_prefix, keyword, results, sections)
                 i += 1
-                
+            #print(f"Results: {results}")
             sys.exit(0)
             
     except Exception as e:
