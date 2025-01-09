@@ -1,6 +1,7 @@
 import json
 import os
 from pdfminer.pdfpage import PDFPage
+from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
     LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTComponent, LTContainer
 from pdfminer.pdfdocument import PDFDocument
@@ -416,7 +417,6 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path):
     except FileNotFoundError: # Code to handle the exception 
         print("There is no file or the path is incorrect!")
 
-import re
 
 def find_string(text, string_to_find):
     
@@ -432,541 +432,294 @@ def find_string(text, string_to_find):
         return "Title not found"
 
 
+def generate_cypher_queries(json_data: List[Dict]) -> List[str]:
+    """
+        Parses JSON data containing keywords and prompts and generates cypher queries to add the prompt as a property to a node.
+
+        Parameters:
+            json_data (List[Dict]): The JSON data containing keywords and prompts.
+        Returns:
+            List[str]: A list of cypher queries.
+    """
+    log = logging.getLogger(__name__)
+    cypher_queries = []
+    try:
+        if not json_data:
+            log.warning("JSON data is empty")
+            return []
+        for item in json_data:
+            keyword = item.get("keyword")
+            prompt = item.get("prompt")
+            if keyword and prompt:
+                cypher = f"""
+                    MATCH (n)
+                    WHERE n.name = "{keyword}"
+                    SET n.llm_prompt = "{prompt}"
+                    RETURN n
+                """
+                cypher_queries.append(cypher)
+                log.debug(f"Generated cypher query for keyword: {keyword}")
+            else:
+                log.warning(f"Missing keyword or prompt in item: {item}")
+        log.info(f"Successfully generated {len(cypher_queries)} cypher queries.")
+        return cypher_queries
+    except Exception as e:
+        log.error(f"An error occurred when generating cypher queries. Error: {e}")
+        return []
 
 
+def extract_textboxes(pdf_path):
+    textboxes = []
+    
+    for page_layout in extract_pages(pdf_path):
+        print(page_layout.pageid)
+        if(page_layout.pageid >= 27 and page_layout.pageid <= 29):
+            for element in page_layout:
+                if isinstance(element, LTTextBoxHorizontal):
+                    textboxes.append(element)
+    
+    return textboxes
+
+def extract_textboxes_by_pageid(pdf_path, page_id):
+    textboxes = []
+    
+    for page_layout in extract_pages(pdf_path):
+        
+        if(page_layout.pageid == page_id):
+            for element in page_layout:
+                if isinstance(element, LTTextBoxHorizontal):
+                    textboxes.append(element)
+    
+    return textboxes
+
+def sort_textboxes(textboxes):
+    # Sort by y0 in descending order (top to bottom) and then by x0 in ascending order (left to right)
+    #textboxes.sort(key=lambda x: (-x.y0, x.x0))
+    textboxes.sort(key=lambda x: (-x.y1))
+    return textboxes
+
+def insert_textbox(sorted_textboxes, new_textbox):
+    # Find the correct position to insert the new textbox
+    for i, textbox in enumerate(sorted_textboxes):
+        if (-new_textbox.y0, new_textbox.x0) < (-textbox.y0, textbox.x0):
+            sorted_textboxes.insert(i, new_textbox)
+            return
+    # If not found, append to the end
+    sorted_textboxes.append(new_textbox)
+    
 def main():
 
     print('Hello, world from pdf_test_parse main!')
     
-    """     str1 = "AI_Risk_Management-NIST.AI.100-1"
-    str2 = "ISO+IEC+23894-2023"
+    #Get Page Ids and Titles for tables from Unstructured API
+    extract_response = read_json_file('data/output/downloads/AIRiskManagementNISTAI1001_unstructured_response.json')
+    results = get_table_pages_from_json(extract_response)
+    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    all_textboxes = []
+    for result in results:
+        print(f"{result['page_number']} - {result['title']}")
+        print('------------------------------------')
+        page_id = result['page_number']
+        textboxes = extract_textboxes_by_pageid(pdf_path, page_id)
+        all_textboxes.extend(textboxes)
     
-    stripped_str1 = strip_non_alphanumeric(str1)
+    sorted_textboxes = sort_textboxes(all_textboxes)
+    print(sorted_textboxes)
     
-    print(stripped_str1)
+    sys.exit(0)
+    #'docs/ISO+IEC+23894-2023.pdf
     
-    stripped_str2 = strip_non_alphanumeric(str2)
+     # Extract textboxes from the PDF
+    textboxes = extract_textboxes('docs/AI_Risk_Management-NIST.AI.100-1.pdf')
     
-    print(stripped_str2)
+    # Sort the textboxes
+    #sorted_textboxes = sort_textboxes(textboxes)
+    
+    # Example: Insert a new textbox (you would get this from further parsing)
+    # new_textbox = LTTextBoxHorizontal()
+    # new_textbox.x0 = 100
+    # new_textbox.y0 = 200
+    # new_textbox._objs = [LTTextContainer()]
+    # insert_textbox(sorted_textboxes, new_textbox)
+    
+    # Print the sorted textboxes
+    for textbox in textboxes:
+        print(f'{textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})')
     
     
-    # Example usage
-    sample_text = "Appendix: A: Descriptions of AI Actor Tasks from Figures 2 and 3"
-    result = find_string(sample_text, "Appendix: A")
-    print(result)
-
-
-    # Example usage
-    sample_text = "Appendix A:"
-    cleaned_text = strip_non_alphanumeric_end(sample_text)
-    print(cleaned_text) """
-
-    sample_json =  [
-            {
-            "type": "Header",
-            "element_id": "f9419a7997760d57b39c54b560a5e57d",
-            "text": "NIST AI 100-1",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+    #convert_pdf_to_json('docs/AI_Risk_Management-NIST.AI.100-1.pdf', 'data/output/pdf_output_pdf_test_parse.txt')
+    #convert_pdf_to_json('docs/ISO+IEC+23894-2023.pdf', 'data/output/ISO_pdf_output_pdf_test_parse.txt')
+   
+   
+    sample_json = [
+        {
+            "keyword": "AI Ethics",
+            "prompt": "What are the guidelines and regulations surrounding the ethical use and development of artificial intelligence?"
         },
         {
-            "type": "Header",
-            "element_id": "c3e2735004b91871f0b7fa8844219e75",
-            "text": "AI RMF 1.0",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Transparency",
+            "prompt": "What are the regulations and guidelines for ensuring transparency in artificial intelligence development, deployment, and decision-making processes?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "2f53df576aeab76f25c714a31c9b4bfd",
-            "text": "GOVERN is a cross-cutting function that is infused throughout AI risk management and enables the other functions of the process. Aspects of GOVERN, especially those related to compliance or evaluation, should be integrated into each of the other functions. Attention to governance is a continual and intrinsic requirement for effective AI risk management over an AI system’s lifespan and the organization’s hierarchy.",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+           "keyword": "Accountability",
+           "prompt": "What are the measures for ensuring transparency and accountability in artificial intelligence decision-making processes?" 
         },
         {
-            "type": "NarrativeText",
-            "element_id": "b3e86bbc15785f06c6f27704af31655b",
-            "text": "Strong governance can drive and enhance internal practices and norms to facilitate orga- nizational risk culture. Governing authorities can determine the overarching policies that direct an organization’s mission, goals, values, culture, and risk tolerance. Senior leader- ship sets the tone for risk management within an organization, and with it, organizational culture. Management aligns the technical aspects of AI risk management to policies and operations. Documentation can enhance transparency, improve human review processes, and bolster accountability in AI system teams.",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Bias Mitigation",
+            "prompt": "What strategies and techniques are employed to reduce or eliminate biases in artificial intelligence systems to ensure fair and inclusive decision-making processes?" 
+         },
+        {
+            "keyword": "Fairness",
+            "prompt": "What are the guidelines and best practices for ensuring transparency, equity, and unbiased decision-making in Artificial Intelligence (AI) systems?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "d43e04a85a16f9ab8b98d920e3a65b4f",
-            "text": "After putting in place the structures, systems, processes, and teams described in the GOV- ERN function, organizations should benefit from a purpose-driven culture focused on risk understanding and management. It is incumbent on Framework users to continue to ex- ecute the GOVERN function as knowledge, cultures, and needs or expectations from AI actors evolve over time.",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Data Privacy",
+            "prompt": "What are the regulatory requirements and best practices for ensuring the confidentiality, integrity, and availability of artificial intelligence data in accordance with privacy laws and regulations?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "2ea9b826d62ec84004cd1c0ed13252a4",
-            "text": "Practices related to governing AI risks are described in the NIST AI RMF Playbook. Table 1 lists the GOVERN function’s categories and subcategories.",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Data Protection",
+            "prompt": "What are the regulatory guidelines and best practices for ensuring the secure handling and protection of sensitive data in Artificial Intelligence (AI) systems?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "c4eaa234ad901eb1b45ab3b019915de2",
-            "text": "Table 1: Categories and subcategories for the GOVERN function.",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Regulatory Compliance",
+            "prompt": "What are the rules and guidelines for implementing Artificial Intelligence (AI) solutions in a manner that ensures regulatory compliance?"
         },
         {
-            "type": "Table",
-            "element_id": "af1102cf6c45104f8b86f228df9b63cb",
-            "text": "Categories Subcategories GOVERN 1: GOVERN 1.1: Legal and regulatory requirements involving AI Policies, processes, are understood, managed, and documented. procedures, and practices across the organization related to the mapping, measuring, and managing of AI risks are in place, GOVERN 1.2: The characteristics of trustworthy AI are inte- grated into organizational policies, processes, procedures, and practices. GOVERN 1.3: Processes, procedures, and practices are in place to determine the needed level of risk management activities based on the organization’s risk tolerance. transparent, and GOVERN 1.4: The risk management process and its outcomes are implemented established through transparent policies, procedures, and other effectively. controls based on organizational risk priorities.",
-            "metadata": {
-                "text_as_html": "<table><thead><tr><th>Categories</th><th>Subcategories</th></tr></thead><tbody><tr><td>GOVERN 1:</td><td>GOVERN 1.1: Legal and regulatory requirements involving Al</td></tr><tr><td>managing of Al risks are in place,</td><td>to determine the needed level of risk management activities based on the organization’s risk tolerance.</td></tr><tr><td>transparent, and implemented\n effectively.</td><td>GOVERN 1.4: The risk management process and its outcomes are established through transparent policies, procedures, and other controls based on organizational risk priorities.</td></tr></tbody></table>",
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "GDPR (General Data Protection Regulation)",
+            "prompt": "What are the implications of implementing Artificial Intelligence (AI) systems on General Data Protection Regulation (GDPR) compliance in data processing and management?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "82133fbe6be3f2df697d96b40878c00b",
-            "text": "Continued on next page",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "parent_id": "c3e2735004b91871f0b7fa8844219e75",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Audit Trails",
+            "prompt": "What records and logs are required to maintain transparency and accountability in artificial intelligence systems, ensuring compliance with regulations and industry standards?"
         },
         {
-            "type": "PageNumber",
-            "element_id": "3dd984e8964241732778b43f7324ed13",
-            "text": "Page 22",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 27,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Explainability",
+            "prompt": "What are the best practices and regulations for ensuring transparency and understandability in Artificial Intelligence (AI) decision-making processes?"
         },
         {
-            "type": "Header",
-            "element_id": "d578ed3de760385975da804c89b63327",
-            "text": "NIST AI 100-1",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 28,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Robustness",
+            "prompt": "What steps are taken to ensure the reliability and resilience of artificial intelligence systems in terms of handling edge cases, unexpected inputs, and potential biases?"
         },
         {
-            "type": "Header",
-            "element_id": "56279384b2f8fe6311da9635526a27c0",
-            "text": "AI RMF 1.0",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 28,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Security",
+            "prompt": "What are the measures taken to ensure the confidentiality, integrity, and availability of artificial intelligence systems and data?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "83a26ab6e9a5bb9ec025cfcc92055d12",
-            "text": "Table 1: Categories and subcategories for the GOVERN function. (Continued)",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 28,
-                "parent_id": "56279384b2f8fe6311da9635526a27c0",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Human Oversight",
+            "prompt": "What role do humans play in ensuring AI systems comply with regulations and standards?"
         },
         {
-            "type": "Table",
-            "element_id": "01f12090c2cdb8a847aab7a27319527f",
-            "text": "Categories Subcategories GOVERN 1.5: Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and or- ganizational roles and responsibilities clearly defined, including determining the frequency of periodic review. GOVERN 1.6: Mechanisms are in place to inventory AI systems and are resourced according to organizational risk priorities. GOVERN 1.7: Processes and procedures are in place for decom- missioning and phasing out AI systems safely and in a man- ner that does not increase risks or decrease the organization’s trustworthiness. GOVERN 2: GOVERN 2.1: Roles and responsibilities and lines of communi- Accountability cation related to mapping, measuring, and managing AI risks are structures are in documented and are clear to individuals and teams throughout place so that the the organization. appropriate teams and individuals are empowered, responsible, and trained for mapping, measuring, and managing AI risks. GOVERN 2.2: The organization’s personnel and partners receive AI risk management training to enable them to perform their du- ties and responsibilities consistent with related policies, proce- dures, and agreements. GOVERN 2.3: Executive leadership of the organization takes re- sponsibility for decisions about risks associated with AI system development and deployment. GOVERN 3: GOVERN 3.1: Decision-making related to mapping, measuring, Workforce diversity, and managing AI risks throughout the lifecycle is informed by a equity, inclusion, diverse team (e.g., diversity of demographics, disciplines, expe- and accessibility rience, expertise, and backgrounds). processes are prioritized in the mapping, measuring, and GOVERN 3.2: Policies and procedures are in place to define and differentiate roles and responsibilities for human-AI configura- tions and oversight of AI systems. managing of AI risks throughout the lifecycle. GOVERN 4: GOVERN 4.1: Organizational policies and practices are in place Organizational to foster a critical thinking and safety-first mindset in the design, teams are committed development, deployment, and uses of AI systems to minimize to a culture potential negative impacts.",
-            "metadata": {
-                "text_as_html": "<table><thead><tr><th>Categories</th><th>Subcategories</th></tr></thead><tbody><tr><td></td><td>GOVERN 1.5: Ongoing monitoring and periodic review of the risk management process and its outcomes are planned and or- ganizational roles and responsibilities clearly defined, including determining the frequency of periodic review.</td></tr><tr><td></td><td>GOVERN 1.6: Mechanisms are in place to inventory Al systems and are resourced according to organizational risk priorities.</td></tr><tr><td></td><td>GOVERN 1.7: Processes and procedures are in place for decom- missioning and phasing out Al systems safely and in a man- ner that does not increase risks or decrease the organization’s trustworthiness.</td></tr><tr><td>GOVERN 2: Accountability\n structures are in place so that the</td><td>GOVERN 2.1: Roles and responsibilities and lines of communi- cation related to mapping, measuring, and managing Al risks are documented and are clear to individuals and teams throughout the organization.</td></tr><tr><td rowspan=\"2\">appropriate teams and individuals are empowered,\n responsible, and trained for mapping, measuring, and managing Al risks.</td><td>GOVERN 2.2: The organization’s personnel and partners receive Al risk management training to enable them to perform their du- ties and responsibilities consistent with related policies, proce- dures, and agreements.</td></tr><tr><td>GOVERN 2.3: Executive leadership of the organization takes re- sponsibility for decisions about risks associated with Al system development and deployment.</td></tr><tr><td>GOVERN 3: Workforce diversity, equity, inclusion, and accessibility</td><td>GOVERN 3.1: Decision-making related to mapping, measuring, and managing Al risks throughout the lifecycle is informed by a diverse team (e.g., diversity of demographics, disciplines, expe- rience, expertise, and backgrounds).</td></tr><tr><td>processes are prioritized in the mapping,\n measuring, and managing of Al risks throughout the lifecycle.</td><td>GOVERN 3.2: Policies and procedures are in place to define and differentiate roles and responsibilities for human-Al configura- tions and oversight of Al systems.</td></tr><tr><td>GOVERN 4: Organizational\n teams are committed to a culture</td><td>GOVERN 4.1: Organizational policies and practices are in place to foster a critical thinking and safety-first mindset in the design, development, deployment, and uses of Al systems to minimize potential negative impacts.</td></tr></tbody></table>",
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 28,
-                "parent_id": "56279384b2f8fe6311da9635526a27c0",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Data Governance",
+            "prompt": "What are the regulatory frameworks and guidelines for ensuring the responsible use of artificial intelligence (AI) in data handling, storage, and processing?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "4666aaf82956fff651edd42b2c9c0f4e",
-            "text": "Continued on next page",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 28,
-                "parent_id": "56279384b2f8fe6311da9635526a27c0",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Risk Management",
+            "prompt": "What are the best practices and guidelines for ensuring AI systems comply with regulations and mitigate potential risks, and how do organizations implement effective risk management strategies in this area?"
         },
         {
-            "type": "PageNumber",
-            "element_id": "874d456f3659385af127b6720bbbd75b",
-            "text": "Page 23",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 28,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Ethical AI",
+            "prompt": "What are best practices and guidelines for ensuring fairness, transparency, and accountability in the development and deployment of artificial intelligence systems?"
         },
         {
-            "type": "Header",
-            "element_id": "12db5ca051a089ec8354e8532c9dc9ef",
-            "text": "NIST AI 100-1",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 29,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Algorithmic Accountability",
+            "prompt": "What are the guidelines and regulations for ensuring transparency, fairness, and accountability in artificial intelligence (AI) decision-making processes?"
         },
         {
-            "type": "Header",
-            "element_id": "14b86c3261f8f22dfa3b53eec3852d26",
-            "text": "AI RMF 1.0",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 29,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Model Monitoring",
+            "prompt": "What are best practices and strategies for monitoring AI models to ensure regulatory compliance?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "d1b51c4b895c6efda7a394f29ef76f96",
-            "text": "Table 1: Categories and subcategories for the GOVERN function. (Continued)",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 29,
-                "parent_id": "14b86c3261f8f22dfa3b53eec3852d26",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Compliance Framework",
+            "prompt": "What are the guidelines and standards for ensuring artificial intelligence (AI) systems comply with regulatory requirements and industry best practices?"
+         },
+        {
+            "keyword": "Stakeholder Engagement",
+            "prompt": "What are best practices for ensuring effective communication and collaboration with various stakeholders, including regulators, customers, employees, and investors, in the development and implementation of artificial intelligence (AI) solutions?"
+         },
+        {
+            "keyword": "Responsible AI",
+            "prompt": "What are the guidelines and regulations for ensuring the ethical use and development of artificial intelligence systems?"
         },
         {
-            "type": "Table",
-            "element_id": "12e48dd913152b8e8107345b5389db69",
-            "text": "Categories Subcategories that considers and GOVERN 4.2: Organizational teams document the risks and po- communicates AI tential impacts of the AI technology they design, develop, deploy, risk. evaluate, and use, and they communicate about the impacts more broadly. GOVERN 4.3: Organizational practices are in place to enable AI testing, identification of incidents, and information sharing. GOVERN 5: GOVERN 5.1: Organizational policies and practices are in place Processes are in to collect, consider, prioritize, and integrate feedback from those place for robust external to the team that developed or deployed the AI system engagement with regarding the potential individual and societal impacts related to relevant AI actors. AI risks. GOVERN 5.2: Mechanisms are established to enable the team that developed or deployed AI systems to regularly incorporate adjudicated feedback from relevant AI actors into system design and implementation. GOVERN 6: Policies GOVERN 6.1: Policies and procedures are in place that address and procedures are AI risks associated with third-party entities, including risks of in- in place to address fringement of a third-party’s intellectual property or other rights. AI risks and benefits arising from third-party software and data and other GOVERN 6.2: Contingency processes are in place to handle failures or incidents in third-party data or AI systems deemed to be high-risk. supply chain issues.",
-            "metadata": {
-                "text_as_html": "<table><thead><tr><th>Categories</th><th>Subcategories</th></tr></thead><tbody><tr><td>that considers and communicates Al risk</td><td>GOVERN 4.2: Organizational teams document the risks and po- tential impacts of the AI technology they design, develop, deploy, evaluate, and use, and they communicate about the impacts more broadly.\n 4.3: Organizational practices in place enable Al</td></tr><tr><td rowspan=\"2\">GOVERN 5: Processes are in place for robust engagement with relevant AT actors.</td><td>GOVERN 5.1: Organizational policies and practices are in place to collect, consider, prioritize, and integrate feedback from those external to the team that developed or deployed the AI system regarding the potential individual and societal impacts related to Al risks.</td></tr><tr><td>GOVERN 5.2: Mechanisms are established to enable the team that developed or deployed Al systems to regularly incorporate adjudicated feedback from relevant Al actors into system design and and implementation.</td></tr><tr><td>GOVERN 6: Policies and procedures are in place to address</td><td>GOVERN 6.1: Policies and procedures are in place that address Al risks associated with third-party entities, including risks of in- fringement of a third-party’s intellectual property or other rights.</td></tr><tr><td>Al risks and benefits arising from third-party software and data and other supply chain issues.</td><td>GOVERN 6.2: Contingency processes are in place to handle failures or incidents in third-party data or Al systems deemed to be high-risk.</td></tr></tbody></table>",
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 29,
-                "parent_id": "14b86c3261f8f22dfa3b53eec3852d26",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Trustworthiness",
+            "prompt": "What are the measures and standards for ensuring the trustworthiness of artificial intelligence systems in various industries?"
+        },
+         {
+            "keyword": "Informed Consent",
+            "prompt": "What are the ethical guidelines and regulations for obtaining informed consent from individuals when using artificial intelligence (AI) systems in applications such as healthcare, finance, or education?"
         },
         {
-            "type": "Title",
-            "element_id": "c3a2366f3279d6f9f13a28564cede3d9",
-            "text": "5.2 Map",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 29,
-                "parent_id": "14b86c3261f8f22dfa3b53eec3852d26",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Impact Assessment",
+            "prompt": "What are best practices and guidelines for conducting impact assessments in artificial intelligence (AI) projects to ensure compliance with relevant regulations and standards?"
         },
         {
-            "type": "NarrativeText",
-            "element_id": "5400f86816779fd118e953a069d0741a",
-            "text": "The MAP function establishes the context to frame risks related to an AI system. The AI lifecycle consists of many interdependent activities involving a diverse set of actors (See Figure 3). In practice, AI actors in charge of one part of the process often do not have full visibility or control over other parts and their associated contexts. The interdependencies between these activities, and among the relevant AI actors, can make it difficult to reliably anticipate impacts of AI systems. For example, early decisions in identifying purposes and objectives of an AI system can alter its behavior and capabilities, and the dynamics of de- ployment setting (such as end users or impacted individuals) can shape the impacts of AI system decisions. As a result, the best intentions within one dimension of the AI lifecycle can be undermined via interactions with decisions and conditions in other, later activities.",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 29,
-                "parent_id": "c3a2366f3279d6f9f13a28564cede3d9",
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Diversity in AI",
+            "prompt": "What strategies are being developed and implemented to ensure artificial intelligence (AI) systems are inclusive, unbiased, and reflective of diverse perspectives and experiences?"
         },
         {
-            "type": "PageNumber",
-            "element_id": "60bd0e06bbd597829e2e1fb27a4bc64e",
-            "text": "Page 24",
-            "metadata": {
-                "filetype": "application/pdf",
-                "languages": [
-                    "eng"
-                ],
-                "page_number": 29,
-                "filename": "AI_Risk_Management-NIST.AI.100-1.pdf"
-            }
+            "keyword": "Vendor Compliance",
+            "prompt": "What are the guidelines and regulations for ensuring artificial intelligence (AI) vendors comply with industry standards and laws, and how do we ensure their technology meets our organizational requirements?"
+        },
+        {
+            "keyword": "Usage Policies",
+            "prompt": "What are the guidelines and regulations governing the usage and application of artificial intelligence (AI) in various industries, organizations, or institutions?"
+        },
+        {
+           "keyword": "Incident Response",
+            "prompt": "What are best practices and procedures for responding to and managing artificial intelligence (AI) incidents, ensuring compliance with regulations and industry standards?"
+         },
+        {
+            "keyword": "Regulatory Landscape",
+            "prompt": "What are the current regulations and guidelines governing the use of artificial intelligence, and how do they impact an organization's data privacy and security practices?"
+        },
+        {
+            "keyword": "Benchmarking",
+            "prompt": "What are the best practices for ensuring artificial intelligence (AI) systems comply with regulations and standards, and how do organizations measure and track their progress in achieving AI compliance?"
+        },
+        {
+             "keyword": "Performance Metrics",
+             "prompt": "What are the key indicators used to measure and assess the effectiveness and efficiency of artificial intelligence (AI) systems in complying with regulatory requirements?"
+         },
+         {
+            "keyword": "Adaptive Compliance",
+            "prompt": "What are best practices for ensuring artificial intelligence systems comply with changing regulations and industry standards?"
+        },
+        {
+            "keyword": "Data Minimization",
+             "prompt": "What are the best practices for minimizing data collection and retention in Artificial Intelligence (AI) systems to ensure compliance with relevant regulations and standards?"
+         },
+         {
+            "keyword": "Cultural Sensitivity",
+            "prompt": "What are the best practices for ensuring fairness, equity, and cultural understanding in artificial intelligence (AI) development and deployment?"
+        },
+         {
+            "keyword": "User Rights",
+            "prompt": "What are the responsibilities and regulations governing user data privacy and protection in artificial intelligence (AI) systems?"
+        },
+       {
+            "keyword": "Algorithm Bias",
+            "prompt": "What are the implications and mitigation strategies for algorithmic bias in artificial intelligence systems on regulatory compliance, data privacy, and fairness in decision-making processes?"
+        },
+       {
+            "keyword": "Training Data Accountability",
+             "prompt": "What measures should be taken to ensure accountability and transparency in the use of training data in artificial intelligence systems?"
+       },
+         {
+            "keyword": "Policy Development",
+            "prompt": "What are the guidelines and procedures for developing policies that ensure Artificial Intelligence (AI) systems comply with relevant regulations and standards?"
+        },
+         {
+           "keyword": "Legal Liability",
+           "prompt": "What are the legal and regulatory implications for organizations using artificial intelligence (AI) in various industries, and how can they mitigate potential legal risks and liabilities?"
+        },
+        {
+            "keyword": "Innovative Regulation",
+            "prompt": "What are the latest regulations and guidelines for ensuring the ethical and responsible development, deployment, and maintenance of artificial intelligence systems?"
         }
     ]
-    
-    loaded_json_data = read_json_file('data/output/downloads/AIRiskManagementNISTAI1001_unstructured_response.json')
-    extracted_data = extract_table_data_from_json2(loaded_json_data)
-    #print (json.dumps(extracted_data, indent=2))
-    save_json_file(extracted_data, 'data/output/downloads/extracted_data_AIRMF.json')
-    sys.exit()
-    
-    # pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
-    # output_path = 'data/output/AI_Risk_Management-PDFMINER_PARSE_TEST'
-    # convert_pdf_to_json(pdf_path, output_path)
-    
-    # sys.exit()
-
-    # loaded_pdf_json_doc = load_document_from_json('data/output/AI__json_output_2024-12-16_13-53-51.json')
-    
-    # for section in loaded_pdf_json_doc.sections:
-    #     print(section['heading'])
-
-    # sections = get_document_sections('data/output/AI__json_output_2024-12-16_13-53-51.json')
-    
-    # print(sections)
-    
-    # embeddings = generate_embeddings(sections)
-    
-    # print(len(embeddings))
-    
-        
-    #sys.exit()
-
-    # test_files = get_files_from_dir('data/output/downloads',extension='.txt')
-
-    # if(test_files != []):
-    #     print(test_files)
-    # else:
-    #     print('Directory was empty.')
-
-    # #'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
-    #upload_file("http://localhost:8000/upload", "docs/ISO+IEC+23894-2023.pdf")
-    
-    #call_unstructured()
-    unstructured_json_file = 'data/output/downloads/unstructured_response_AI_RMF.json'
-    extract_response = read_json_file(unstructured_json_file)  
-    extract_text_from_html(extract_response)
-   # html_content = "<table><thead><tr><th></th><th>Principle</th><th>Description (as given in ISO 10 018, Clause 4)</th><th>Implications for the development and use of Al</th></tr></thead><tbody><tr><td>d) d)</td><td>Inclusive Inclusive</td><td>Appropriate and timely involvement of stake- holders enables their knowledge, views and | perceptions to be considered. This results in improved awareness and informed management. in improved awareness and informed risk \n management.</td><td>| Because of the potentially far-reaching im- pacts of Al to stakeholders, it is important |that organizations seek dialog with diverse risk|internal and external groups, both to com- municate harms and benefits, and to incor- porate feedback and awareness into the risk management process. Organizations should also be aware that the use of Al systems can introduce additional stakeholders. The areas in which the knowledge, views and perceptions of stakeholders are of benefit include but are not restricted to: — Machine learning (ML) in particular often relies on the set of data appropriate to fulfil its objectives. Stakeholders can help in the identification of risks regarding the data collection, the processing operations, the source and type of data, and the use of the data for operations, \n situations or where the data subjects can be outliers. The complexity of Al technologies creates challenges related to and transparency explainability of Al systems. The diversity of Al transparency \n further drives these challenges due to characteristics such as multiple types of data modalities, Al model topologies, and transparency and reporting mechanisms that should be selected per stakeholders’ needs. Stakeholders can help to identify the goals and describe the means for enhancing transparency and explainability of Al systems. In certain cases, these goals and means can be generalized across the use case and different stakeholdersinvolved. In other cases, stakeholder segmentation of transparency frameworks and reporting mechanisms can be tailored torelevant personas (e.g. “regulators”, “business owners”, “model risk evaluators”) per the use case. Using Al systems for automated decision-making can directly affect internal and external stakeholders. Such stakeholders can provide their views and perceptions concerning, for example, where human oversight can be needed. Stakeholders can help in defining fairness criteria and also help to identify what constitutes bias porate feedback and awareness into the risk \n management process.\n use of AI systems can introduce additional \n stakeholders.\n the \n risks \n particular  situations  or  where  the \n related \n and \n and \n to \n of \n “business  owners”, \n “model \n risk</td></tr></tbody></table>"
-    #html_table_to_json(html_content)
-
-    sys.exit()
-    # json_response = call_api("http://localhost:8000/extract2", "uploaded_AI_Risk_Management-NIST.AI.100-1.pdf/24-36/stream")
-
-
-    # if(json_response.status_code == 200):
-    #     data = json_response.json()
-    #     print(data)
-    #     #Get file name as parameter for next request ...
-
-    #     file_name = data.get("filename")
-
-    #     print(file_name)
-
-    #     json_table_data = call_api("http://localhost:8000/get_tables", file_name)
-
-    #     if(json_table_data.status_code == 200):
-    #         print(json_table_data.json())
-
-
-    """Save processed data to a JSON file."""
-    #file_name = generate_filename("final_tables","json")
-    #output_file = f'data/output/{file_name}'
-    #with open(output_file, 'w') as file:
-     #   json.dump(json_data, file, indent=4)
-    #save_to_json_file(json_data.json(), output_file)
-    container_name = 'tenacious-extractor'
-
-    container_path = '/output/parsing'
-
-    local_path = 'data/output/downloads'
-
-    downloads = 'data/output/downloads'
-
-""" def extract_text_from_html(extract_response):
-    if(extract_response):
-        #TODO: Make call to extract HTML table markup from JSON and persist as JSON in a new file
-        tables = []
-        for table in extract_response:
-            #tables.append(table)
-            if(table['type'] == "Table"):
-                meta_data = table['metadata']
-                title = f'<h1>{table['text']}</h1>'
-                html_mark_up = f'{title} {meta_data['text_as_html']}'
-                #print(meta_data['text_as_html'])
-                tables.append(html_mark_up)
-                #print()
-        #html_table_to_json(tables)
-    table_file_path = 'data/output'
-    
-    
-    count = 1
-    for table in tables:
-        print(table)
-        print()
-        file_name = generate_filename(f"extracted_tables_{count}","json")
-        full_path = os.path.join(table_file_path, file_name)
-        html_table_to_json(table, full_path)
-        count += 1 """
-
-
-    #files =  os.listdir(downloads)
-    # Filter the list to include only JSON files 
-    #filtered_files = [f for f in files if f.endswith('.json')]
-    # Sort the list using the custom sorting function
-    #sorted_filenames = sorted(filtered_files, key=alphanum_key)
-
-    #print("Sorted filenames:", sorted_filenames)
-
-
-    #json_data = collate_output_tables(downloads)
-
-
-    # sys.exit()
-    
-
-    # nlp = spacy.load('en_core_web_sm')
-
-
-    # match = find_appendix("Appendix A: This is a test.")
-
-    # # Display the match 
-    # if match: 
-    #     print("Match found:") 
-    #     print(match.group()) 
-    # else: 
-    #     print("No match found.")
-
-
-    # sys.exit()
-
-    # list_of_things = []
-
-    # list_of_things.append("Hello")
-    # list_of_things.append("world")
-    # list_of_things.append("this is a test")
-    # list_of_things.append("Goodbye")
-    # #doc  = nlp(None)
-
-    # my_str = "The day started out like every other day in October."
-
-    # if("October" in my_str):
-    #     print("The sentence contained the token.")
-
-    # # Path to your PDF file
-    # #pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
-
-    # pdf_path = 'docs/ISO+IEC+23894-2023.pdf'
-
-    # #detect_tables(pdf_path)
-
-    # #extract_pdf_pages(pdf_path)
-
-    # #extract_toc_test()
-
-    # test_str = """Hello,  world this is a  test!"""
-    
-    # sentences  = test_str.split(' ')
-
-    # #print(len(sentences))
-
-    # for sentence in sentences:
-    #     print(f'-{sentence}-\n')
-    #     #print()
-
-    # print(" ".join(sentences[0:]))
-
-
-"""
-    # Specify the directory you want to open
-    directory = 'data/output'
-
-    files =  os.listdir(directory)
-    # Filter the list to include only JSON files 
-    sorted_files = [f for f in files if f.endswith('.json')]
-
-    # Sort the list alphanumerically
-    sorted_files.sort()
-
-    for filename in sorted_files: 
-        print(filename) 
-
-"""
+    cypher_queries = generate_cypher_queries(sample_json)
+    for query in cypher_queries:
+        print(query)
 
 
 if __name__ == "__main__":
