@@ -84,6 +84,7 @@ def extract_text_from_pdf(pdf_path):
     Returns:
         resource_manager = PDFResourceManager()
     """
+    logger = configure_logger("extract_text_from_pdf")
     try:
         # Open the PDF file
         with open(pdf_path, 'rb') as file:
@@ -123,10 +124,10 @@ def extract_text_from_pdf(pdf_path):
 
             return text
     except FileNotFoundError:
-         log.error(f"File not found: {pdf_path}")
+         logger.error(f"File not found: {pdf_path}")
          raise # Re-raise the exception to be handled by caller
     except Exception as e:
-        log.error(f"An error occurred during PDF processing: {e}")
+        logger.error(f"An error occurred during PDF processing: {e}")
         raise #Re-raise to allow caller to catch specific error
     finally:
         # Cleanup
@@ -436,35 +437,40 @@ def main():
             neo4j_graph_db = GraphDB(db_name, uri, user_id, auth_key)
             
             #Get Records from Graph Db query
-            records = neo4j_graph_db.get_keyworsds_graphdb()
+            records = neo4j_graph_db.get_prompts_graphdb()
             
             logger.info(f'Number of records returned from Graph DB: {len(records)}')
             
             print(f"Length of sections: {len(sections)}")
-            
-            local_model = "llama3"
-            prompt_template = """
-            Rephrase the following keyword into a question that can be used to retrieve documents related to AI compliance: {keyword}.
-            """
-            prompt = PromptTemplate(
-                input_variables = ["keyword"],
-                template=prompt_template
-             )
-            # Loop through results and do something with them
-            llm = Ollama(model=local_model)
-            llm_chain = LLMChain(prompt=prompt, llm = llm, output_parser=StrOutputParser())
+            #print(records)
+            #sys.exit(0)
+            # local_model = "llama3"
+            # prompt_template = """
+            # Rephrase the following keyword into a question that can be used to retrieve documents related to AI compliance: {keyword}.
+            # """
+            # prompt = PromptTemplate(
+            #     input_variables = ["keyword"],
+            #     template=prompt_template
+            #  )
+            # # Loop through results and do something with them
+            # llm = Ollama(model=local_model)
+            # llm_chain = LLMChain(prompt=prompt, llm = llm, output_parser=StrOutputParser())
             
             i = 0
             # Loop through results and do something with them
             for record in records:
+                llm_prompt = record['Prompt']
                 keyword = record['Keyword']
-                refined_query = llm_chain.invoke({"keyword": keyword})
-                results = pinecond_db.get_vectordb_search_results(refined_query)
-                logger.debug(f'modified query for keyword: {keyword} {refined_query}')
+                #refined_query = llm_chain.invoke({"keyword": keyword})
+                #results = pinecond_db.get_vectordb_search_results(keyword)
+                results = pinecond_db.get_vectordb_search_results(llm_prompt)
+                #logger.debug(f'modified query for keyword: {keyword} {keyword}')
                 #logger.debug(f'Search resuls for keyword: {refined_query} {results}')
-                
+                logger.debug(f'Query used on Pinecone: {llm_prompt}')
+                #logger.debug(f'Query used on Pinecone: {keyword}')
             #results = pinecond_db.get_vectordb_search_results("What are the ethical considerations and guidelines in AI compliance?")
-                save_file(f'data/output/this_is_a_test_{str(i)}.json', results)
+                keyword = keyword.replace(" ", "_")
+                save_file(f'data/output/this_is_a_test_{keyword}.json', results)
                 pinecond_db.output_search_results_to_file(pdf_prefix, keyword, results, sections)
                 i += 1
             #print(f"Results: {results}")
