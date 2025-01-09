@@ -22,7 +22,7 @@ class GraphDB:
         self._db_name = db_name
         self.log = logging.getLogger(__name__)
     
-    def get_keyworsds_graphdb(self) -> List[Dict[str, Any]]:
+    def get_keywords_graphdb(self) -> List[Dict[str, Any]]:
         """
         Retrieves keywords from the graph database.
 
@@ -32,6 +32,33 @@ class GraphDB:
         query = """
         MATCH (k:Keyword)
         RETURN k.name AS Keyword
+        """
+        try:
+           self.log.info(f"Connecting to Neo4j database: {self._db_name} at {self._URI}")
+           with GraphDatabase.driver(self._URI, auth=(self._user_id, self._auth_key)) as driver:
+              self.log.debug("Successfully connected to Neo4j database.")
+              #driver.verify_connectivity() #Removed connectivity verification for performance reasons.
+              records, summary, keys = driver.execute_query(
+                   query,
+                   database_=self._db_name
+               )
+              self.log.info(f"Successfully retrieved {len(records)} records from Neo4j database: {self._db_name}")
+              self.log.debug(f"Retrieved records: {records}")
+              return records
+        except Exception as e:
+            self.log.error(f"An error occurred while retrieving keywords from Neo4j database: {self._db_name}. Error: {e}")
+            return []
+        
+    def get_prompts_graphdb(self) -> List[Dict[str, Any]]:
+        """
+        Retrieves llm prompts from each node the graph database.
+
+        Returns:
+            List[Dict[str, Any]]: A list of records from the graph database.
+        """
+        query = """
+        MATCH (k:Keyword)
+        RETURN k.name AS Keyword, k.llm_prompt AS Prompt
         """
         try:
            self.log.info(f"Connecting to Neo4j database: {self._db_name} at {self._URI}")
