@@ -1,11 +1,12 @@
 import json 
 import logging
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 from bs4 import BeautifulSoup
 from file_util import save_json_file
 from file_util import generate_filename
 import re
+import csv
 
 def extract_html_tables(extract_response: List[Dict], output_dir: str) -> None:
     """
@@ -346,6 +347,7 @@ def extract_table_data_from_json2(json_data: List[Dict]) -> List[Dict[str, Any]]
 
       if table_titles:
            log.warning(f"There were {len(table_titles)} unmatched titles: {table_titles}\n\n")
+           
       return table_data_list
     except KeyError as e:
         log.error(f"KeyError: {e} in JSON data")
@@ -353,3 +355,87 @@ def extract_table_data_from_json2(json_data: List[Dict]) -> List[Dict[str, Any]]
     except Exception as e:
        log.error(f"An unexpected error occurred: {e} when processing table data from the JSON.")
        return []
+      
+
+def are_textboxes_tabular(bbox1: Tuple[float, float, float, float], bbox2: Tuple[float, float, float, float], y_tolerance: float = 10.0, x_tolerance: float = 20.0 ) -> bool:
+    """
+    Determines if two text boxes, defined by their bounding boxes, are arranged in a tabular format.
+
+    Parameters:
+        bbox1 (Tuple[float, float, float, float]): The bounding box of the first text box (x0, y0, x1, y1).
+        bbox2 (Tuple[float, float, float, float]): The bounding box of the second text box (x0, y0, x1, y1).
+        y_tolerance (float): The tolerance in y-coordinates for considering text boxes in the same row.
+        x_tolerance (float): The tolerance in x-coordinates for considering text boxes in the same column.
+    Returns:
+        bool: True if the text boxes are likely in a tabular format, False otherwise.
+    """
+    log = logging.getLogger(__name__)
+    try:
+        x0_1, y0_1, x1_1, y1_1 = bbox1
+        x0_2, y0_2, x1_2, y1_2 = bbox2
+
+        # Check for horizontal alignment (same row)
+        is_same_row = abs((y0_1 + y1_1) / 2 - (y0_2 + y1_2) / 2 ) <= y_tolerance
+
+       # Check for vertical alignment (same column)
+        is_same_column = abs((x0_1 + x1_1) / 2 - (x0_2 + x1_2) / 2 ) <= x_tolerance
+
+        # Check for any overlap in x or y coordinate:
+        x_overlap = not (x1_1 < x0_2 or x1_2 < x0_1)
+        y_overlap = not (y1_1 < y0_2 or y1_2 < y0_1)
+
+
+        #For this example, I am only assuming 2 textboxes in the same row as part of the tabular format.
+        if is_same_row and not is_same_column and not y_overlap :
+           log.debug(f"Text boxes are likely in the same row: Bounding Box 1: {bbox1}. Bounding Box 2: {bbox2}")
+           return True
+        if is_same_column and not is_same_row and not x_overlap:
+            log.debug(f"Text boxes are likely in the same column: Bounding Box 1: {bbox1}. Bounding Box 2: {bbox2}")
+            return True
+        else:
+          log.debug(f"Text boxes are NOT in a tabular format: Bounding Box 1: {bbox1}. Bounding Box 2: {bbox2}")
+          return False
+
+    except Exception as e:
+        log.error(f"An error occurred while checking for tabular layout: {e}. Bounding Box 1: {bbox1}. Bounding Box 2: {bbox2}")
+        return False
+    
+def get_table_pages_from_json(json_data: List[Dict]) -> List[int]:
+    """
+    Extracts the page numbers of tables from the JSON data.
+
+    Parameters:
+        json_data (List[Dict]): The JSON data containing table information.
+
+    Returns:
+        List[int]: A list of page numbers where tables are found.
+    """
+    log = logging.getLogger(__name__)
+    table_data_list = []
+    table_titles = {} #Stores all the titles keyed by element_id
+    current_table = None
+    try:
+      if not json_data:
+            log.warning("The json data is empty.")
+            return []
+      for element in json_data:
+           if element["type"] == "NarrativeText":
+            match = re.match(r"^(Table\s+\d+[\s\S]*)", element["text"], re.IGNORECASE)
+            if match:
+                table_title = match.group(0).strip()
+                title = {
+                    "title": table_title,
+                    "element_id": element["element_id"],
+                    "page_number": element["metadata"].get("page_number", None)
+                }
+                #table_titles[element["metadata"]["parent_id"]] = title
+                table_data_list.append(title)
+                #TEMPORARY
+      
+      return table_data_list
+    except KeyError as e:
+        log.error(f"KeyError: {e} in JSON data")
+        return []
+    except Exception as e:
+        log.error(f"An unexpected error occurred: {e} when processing table pages from the JSON.")
+        return []  
