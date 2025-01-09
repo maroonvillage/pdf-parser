@@ -217,7 +217,7 @@ class PineConeVectorDB:
         """
         try:
             document_json = {
-                "title": f"Extracted document for keyword {keyword}",
+                "title": f"{keyword}",
                 "sections": []
             }
             if search_results and search_results.get("matches"):
@@ -225,7 +225,8 @@ class PineConeVectorDB:
                     section_id = int(match['id'])
                     document_json["sections"].append({
                          "section_id": section_id,
-                         "content": sections[section_id]
+                         "content": sections[section_id],
+                         "score": match['score']
                      })
                 modified_string = keyword.replace(" ", "").lower()
                 file_name = f'{prefix}_query_results_{modified_string}.json'
