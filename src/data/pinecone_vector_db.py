@@ -16,7 +16,7 @@ from langchain.chains import LLMChain
 from langchain.embeddings import HuggingFaceEmbeddings
 
 from data.vector_store_retreiver import VectorStoreRetriever, SentenceTransformerEmbeddings
-
+from src.utilities.file_util import generate_filename
 
 
 class PineConeVectorDB:
@@ -229,8 +229,9 @@ class PineConeVectorDB:
                          "score": match['score']
                      })
                 modified_string = keyword.replace(" ", "").lower()
-                file_name = f'{prefix}_query_results_{modified_string}.json'
-                full_path = os.path.join('data/output', file_name)
+                file_name = f'{prefix}_query_results_{modified_string}'
+                file_name = generate_filename(file_name, extension='json')
+                full_path = os.path.join('data/output/query_results', file_name)
 
                 with open(full_path, 'w') as json_file:
                    json.dump(document_json, json_file, indent=2)

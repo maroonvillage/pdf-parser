@@ -24,7 +24,7 @@ import spacy
 from abc import ABC, abstractmethod
 from document import Document, Section, Figure
 from matcher_patterns import get_matcher
-from parse_util import replace_extra_space
+from src.utilities.parse_util import replace_extra_space
 
 class TextElementProcessor(ABC):
     """Abstract class for processing layout elements."""
@@ -142,6 +142,21 @@ class TextBoxProcessor(TextElementProcessor):
         
         return current_section_header
 
+    def find_sections(self, text: str, matching_groups: bool = False) -> List[str]:
+        return self._find_sections(text, matching_groups)
+    
+    def find_section(self, text: str, matching_groups=False):
+        return self._find_section(text, matching_groups)
+    
+    def find_appendicies(self, text: str) -> List[str]:
+        return self._find_appendicies(text)
+    
+    def find_appendix(self, text: str) -> Optional[re.Match]:
+        return self._find_appendix(text)
+    
+    def find_figures(self, text: str) -> List[str]:
+        return self._find_figures(text)
+        
     def _find_sections(self, text: str, matching_groups: bool = False) -> List[str]:
         """
         Finds all occurrences of section patterns within the given text.
