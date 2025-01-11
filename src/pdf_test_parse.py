@@ -16,14 +16,14 @@ import sys
 #from pdfminer.layout import LTTextContainer, LTChar
 
 from api_caller import call_api, upload_file, call_unstructured
-from file_util import *
+from src.utilities.file_util import *
 
 from sentence_transformers import SentenceTransformer
 from data.pinecone_vector_db import PineConeVectorDB
 from data.graph_db import GraphDatabase
 #from data_util import *
 
-from parse_util import *
+from src.utilities.parse_util import *
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -324,7 +324,6 @@ def generate_embeddings(text_chunks, model_name='sentence-transformers/all-MiniL
     
     return section_embeddings
 
-
 def convert_pdf_to_json(pdf_file_path, output_txt_path):
 
     print(f'Inside convert_pdf_to_json ... the path is: {pdf_file_path}')
@@ -417,7 +416,6 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path):
     except FileNotFoundError: # Code to handle the exception 
         print("There is no file or the path is incorrect!")
 
-
 def find_string(text, string_to_find):
     
     # Define the regex pattern to match the word "Title"
@@ -430,7 +428,6 @@ def find_string(text, string_to_find):
         return f"Found '{match.group()}' at position {match.start()} to {match.end()}"
     else:
         return "Title not found"
-
 
 def generate_cypher_queries(json_data: List[Dict]) -> List[str]:
     """
@@ -467,16 +464,18 @@ def generate_cypher_queries(json_data: List[Dict]) -> List[str]:
         log.error(f"An error occurred when generating cypher queries. Error: {e}")
         return []
 
-
-def extract_textboxes(pdf_path):
+def extract_textboxes(pdf_path, output_file):
+    """Iterates PDF Document and writes textboxes to a file."""
     textboxes = []
     
-    for page_layout in extract_pages(pdf_path):
-        print(page_layout.pageid)
-        if(page_layout.pageid >= 27 and page_layout.pageid <= 29):
-            for element in page_layout:
-                if isinstance(element, LTTextBoxHorizontal):
-                    textboxes.append(element)
+    with open(output_file, 'w') as wfile:
+        for page_layout in extract_pages(pdf_path):
+            #print(page_layout.pageid)
+            if(page_layout.pageid >= 27 and page_layout.pageid <= 29):
+                for element in page_layout:
+                    if isinstance(element, LTTextBoxHorizontal):
+                        textboxes.append(element)
+                        wfile.write(f'Textbox Content: {element.get_text()} \n Bounding box: ({element.x0}, {element.y0}) ({element.x1}, {element.y1})\n')
     
     return textboxes
 
@@ -506,10 +505,59 @@ def insert_textbox(sorted_textboxes, new_textbox):
             return
     # If not found, append to the end
     sorted_textboxes.append(new_textbox)
+
+def get_unstructured_page_elements(response_json_file) -> str:
+    """Extracts page elements like headers, footers, and page numbers from the Unstructured API response.
+       Returns a list of dictionaries containing the text and type of each element.
+    """
+    
+    page_element_text = {
+        
+        "header": "",
+        "footer": "",
+        "pagenumber": ""
+    }
+    
+    # Read the JSON file
+    response_json = read_json_file(response_json_file)
+    
+    #print(response_json)
+
+    for element in response_json:
+        if(element['type'] == 'Header' or element['type'] == 'Footer' or element['type'] == 'PageNumber'):
+            if(element['text'] not in page_element_text[element['type'].lower()]):
+                page_element_text[element['type'].lower()] += f"{element['text']} "
+            
+    # Return the elements
+    return page_element_text
+
+
     
 def main():
 
     print('Hello, world from pdf_test_parse main!')
+    
+    results = get_unstructured_page_elements('data/output/downloads/api_responses/AIRiskManagementNISTAI1001_unstructured_response.json')
+    
+    print (results)
+    
+    
+    text ="NIST AI 100-1"
+    if(text in results['header']):
+        print('This text is in the header')
+    elif(text in results['footer']):
+        print('This text is in the footer')
+    elif(text in results['pagenumber']):
+        print('This text is a page number')
+    else:
+        print('This text is not in the header, footer or page number')
+
+    sys.exit(0)
+     # Extract textboxes from the PDF
+    textboxes = extract_textboxes('docs/AI_Risk_Management-NIST.AI.100-1.pdf', 'data/output/pdf_output_pdf_test_parse.txt')
+    
+    
+    
     
     #Get Page Ids and Titles for tables from Unstructured API
     extract_response = read_json_file('data/output/downloads/AIRiskManagementNISTAI1001_unstructured_response.json')
@@ -529,8 +577,7 @@ def main():
     sys.exit(0)
     #'docs/ISO+IEC+23894-2023.pdf
     
-     # Extract textboxes from the PDF
-    textboxes = extract_textboxes('docs/AI_Risk_Management-NIST.AI.100-1.pdf')
+    
     
     # Sort the textboxes
     #sorted_textboxes = sort_textboxes(textboxes)
@@ -545,6 +592,7 @@ def main():
     # Print the sorted textboxes
     for textbox in textboxes:
         print(f'{textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})')
+        
     
     
     #convert_pdf_to_json('docs/AI_Risk_Management-NIST.AI.100-1.pdf', 'data/output/pdf_output_pdf_test_parse.txt')
