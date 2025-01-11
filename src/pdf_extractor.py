@@ -26,8 +26,8 @@ from logger_config import configure_logger
 from matcher_patterns import *
 from api_caller import call_unstructured
 
-from file_util import *
-from parse_util import *
+from src.utilities.file_util import *
+from src.utilities.parse_util import *
 
 from document import Document, Section, Figure, Table
 
@@ -324,8 +324,9 @@ def main():
 
     input_folder = 'docs'
     output_folder = 'data/output'
-
-    pdf_file_name = 'AI_Risk_Management-NIST.AI.100-1.pdf' 
+    output_folder_parsed = 'data/output/parsed'
+    
+    pdf_file_name = 'ISO+IEC+23894-2023.pdf' 
     #'AI_Risk_Management-NIST.AI.100-1.pdf'
     #'ISO+IEC+23894-2023.pdf' 
     
@@ -335,19 +336,19 @@ def main():
     pdf_path =  os.path.join(input_folder, pdf_file_name)
 
     parsed_pdf_txt_file_name = generate_filename(f'{pdf_prefix}_extracted')
-    parsed_pdf_txt_path = os.path.join(output_folder, parsed_pdf_txt_file_name)
+    parsed_pdf_txt_path = os.path.join(output_folder_parsed, parsed_pdf_txt_file_name)
 
     pdfminer_txt_file_name = generate_filename(f'{pdf_prefix}_pdfminer_extract')
-    pdfminer_txt_path = os.path.join(output_folder, pdfminer_txt_file_name)
+    pdfminer_txt_path = os.path.join(output_folder_parsed, pdfminer_txt_file_name)
 
     toc_ouput_file_name = generate_filename(f'{pdf_prefix}_TOC')
-    toc_output_path = os.path.join(output_folder, toc_ouput_file_name)
+    toc_output_path = os.path.join(output_folder_parsed, toc_ouput_file_name)
 
     json_ouput_file_name = generate_filename(f'{pdf_prefix}_json_output',extension="json")
-    json_output_path = os.path.join(output_folder, json_ouput_file_name)
+    json_output_path = os.path.join(output_folder_parsed, json_ouput_file_name)
 
     json_table_output_file_name = generate_filename(f'{pdf_prefix}_json_table_output',extension="json")
-    json_table_output_path = os.path.join(output_folder, json_table_output_file_name)
+    json_table_output_path = os.path.join(output_folder_parsed, json_table_output_file_name)
 
     # Add logging here ...
     # Create a custom logger instance.
@@ -390,7 +391,7 @@ def main():
 
             #Once a call to the Unstructured API is made, the response is saved to a file.  
             # This precludes the need to make repeated calls to the API.
-            dowloads_folder = f'{output_folder}/downloads'
+            dowloads_folder = f'{output_folder}/downloads/api_responses'
             modified_pdf_filename = strip_non_alphanumeric(pdf_file_name.replace(".pdf",""))
             unstructured_json_file = os.path.join(dowloads_folder, f'{modified_pdf_filename}_unstructured_response.json')
             if os.path.exists(unstructured_json_file):
@@ -402,9 +403,7 @@ def main():
                 save_file(unstructured_json_file, json.dumps(extract_response, indent=4))  # Save the response to a file
             
             
-            #Extract tables from the response of the Unstructured API and save to JSON file.
-            #extract_html_tables(extract_response, output_folder)
-            
+
             #Extract tables from the response of the Unstructured API and save to JSON file.
             extracted_data = extract_table_data_from_json2(extract_response)
             
@@ -416,12 +415,7 @@ def main():
             sections = get_document_sections(json_output_path)
             
             embeddings = generate_embeddings(sections)
-            # i = 1
-            # for embedding in embeddings.tolist():
-            #     print([(str(i),embedding)])
-            #     i += 1
                 
-            
             pinecone_api_key=os.environ.get("PINECONE_API_KEY")
             pinecond_db = PineConeVectorDB(pinecone_api_key,pdf_prefix)
             print(pinecond_db.index_name)
@@ -442,40 +436,28 @@ def main():
             logger.info(f'Number of records returned from Graph DB: {len(records)}')
             
             print(f"Length of sections: {len(sections)}")
-            #print(records)
-            #sys.exit(0)
-            # local_model = "llama3"
-            # prompt_template = """
-            # Rephrase the following keyword into a question that can be used to retrieve documents related to AI compliance: {keyword}.
-            # """
-            # prompt = PromptTemplate(
-            #     input_variables = ["keyword"],
-            #     template=prompt_template
-            #  )
-            # # Loop through results and do something with them
-            # llm = Ollama(model=local_model)
-            # llm_chain = LLMChain(prompt=prompt, llm = llm, output_parser=StrOutputParser())
+
             
             i = 0
             # Loop through results and do something with them
             for record in records:
                 llm_prompt = record['Prompt']
                 keyword = record['Keyword']
-                #refined_query = llm_chain.invoke({"keyword": keyword})
-                #results = pinecond_db.get_vectordb_search_results(keyword)
+
                 results = pinecond_db.get_vectordb_search_results(llm_prompt)
-                #logger.debug(f'modified query for keyword: {keyword} {keyword}')
-                #logger.debug(f'Search resuls for keyword: {refined_query} {results}')
                 logger.debug(f'Query used on Pinecone: {llm_prompt}')
-                #logger.debug(f'Query used on Pinecone: {keyword}')
-            #results = pinecond_db.get_vectordb_search_results("What are the ethical considerations and guidelines in AI compliance?")
+
                 keyword = keyword.replace(" ", "_")
-                save_file(f'data/output/this_is_a_test_{keyword}.json', results)
+                #Save vector search results to file
+                file_name = f'{pdf_prefix}_results_vector_{keyword}'
+                file_name = generate_filename(file_name, extension='json')
+                full_path = os.path.join('data/output/query_results', file_name)
+                if results and results.get("matches"):
+                    save_file(full_path, results)
+                    
                 pinecond_db.output_search_results_to_file(pdf_prefix, keyword, results, sections)
                 i += 1
-            #print(f"Results: {results}")
-            sys.exit(0)
-            
+
     except Exception as e:
         print(f"An error occurred: {e}")
         logger.error(f"An error occurred: {e}")
