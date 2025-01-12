@@ -16,7 +16,7 @@ from langchain.chains import LLMChain
 from langchain.embeddings import HuggingFaceEmbeddings
 
 from data.vector_store_retreiver import VectorStoreRetriever, SentenceTransformerEmbeddings
-from src.utilities.file_util import generate_filename
+from utilities.file_util import generate_filename
 
 
 class PineConeVectorDB:
