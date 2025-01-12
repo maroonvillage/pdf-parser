@@ -24,8 +24,38 @@ import spacy
 from abc import ABC, abstractmethod
 from document import Document, Section, Figure
 from matcher_patterns import get_matcher
-from src.utilities.parse_util import replace_extra_space
+from utilities.parse_util import replace_extra_space, find_page_number
 
+def get_element_processor(element, nlp=None, config=None):
+    
+
+    if isinstance(element,LTTextBoxHorizontal):
+        return TextBoxProcessor(nlp, config)
+    elif isinstance(element,LTTextLineHorizontal):
+        return TextLineProcessor()
+    elif isinstance(element,LTChar):
+        return CharProcessor()
+    elif isinstance(element,LTLine):
+        return LineProcessor()
+    elif isinstance(element,LTRect):
+        return RectProcessor()
+    elif isinstance(element,LTFigure):
+        return FigureProcessor()
+    elif isinstance(element,LTImage):
+        return ImageProcessor()
+    elif isinstance(element,LTTextLineVertical):
+        return VerticalLineProcessor()
+    elif isinstance(element,LTTextGroup):
+        return TextGroupProcessor()
+    elif isinstance(element,LTContainer):
+        return ContainerProcessor()
+    elif isinstance(element,LTTextGroupTBRL):
+        return TextGroupTBRLProcessor()
+    elif isinstance(element,LTCurve):
+        return CurvedLineProcessor()
+    else:
+        raise ValueError(f"Unsupported element type: {element}")
+    
 class TextElementProcessor(ABC):
     """Abstract class for processing layout elements."""
 
@@ -156,7 +186,10 @@ class TextBoxProcessor(TextElementProcessor):
     
     def find_figures(self, text: str) -> List[str]:
         return self._find_figures(text)
-        
+    
+    def find_page_number(self, text: str) -> Optional[re.Match]:
+        return self._find_page_number(text)
+            
     def _find_sections(self, text: str, matching_groups: bool = False) -> List[str]:
         """
         Finds all occurrences of section patterns within the given text.
@@ -289,6 +322,25 @@ class TextBoxProcessor(TextElementProcessor):
             log.error(f"An unexpected error has occurred: {e} with input text: {text}")
             return []
     
+    def _find_page_number(self, text: str) -> Optional[re.Match]:
+        """
+        Attempts to match a page number pattern at the end of the given text.
+
+        Parameters:
+            text (str): The text to search in.
+
+        Returns:
+            Optional[re.Match]: A match object if a match is found, otherwise None.
+        """
+        log = logging.getLogger(__name__)
+        try:
+            return find_page_number(text)
+        except re.error as e:
+            log.error(f"Regex error: {e} with input text: {text}")
+            return None
+        except Exception as e:
+            log.error(f"An unexpected error has occurred: {e} with input text: {text}")
+            return None
 
 
 class TextLineProcessor(TextElementProcessor):
