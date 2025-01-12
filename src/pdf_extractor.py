@@ -134,35 +134,6 @@ def extract_text_from_pdf(pdf_path):
         device.close()
         temp_file.close()
                             
-def get_element_processor(element, nlp=None, config=None):
-    
-
-    if isinstance(element,LTTextBoxHorizontal):
-        return TextBoxProcessor(nlp, config)
-    elif isinstance(element,LTTextLineHorizontal):
-        return TextLineProcessor()
-    elif isinstance(element,LTChar):
-        return CharProcessor()
-    elif isinstance(element,LTLine):
-        return LineProcessor()
-    elif isinstance(element,LTRect):
-        return RectProcessor()
-    elif isinstance(element,LTFigure):
-        return FigureProcessor()
-    elif isinstance(element,LTImage):
-        return ImageProcessor()
-    elif isinstance(element,LTTextLineVertical):
-        return VerticalLineProcessor()
-    elif isinstance(element,LTTextGroup):
-        return TextGroupProcessor()
-    elif isinstance(element,LTContainer):
-        return ContainerProcessor()
-    elif isinstance(element,LTTextGroupTBRL):
-        return TextGroupTBRLProcessor()
-    elif isinstance(element,LTCurve):
-        return CurvedLineProcessor()
-    else:
-        raise ValueError(f"Unsupported element type: {element}")
     
 def create_toc_dictionary(lines_list: List[str]) -> Dict[str, int]:
     """
