@@ -3,10 +3,8 @@ import logging
 import os
 from typing import List, Dict, Any, Optional, Tuple
 from bs4 import BeautifulSoup
-from src.utilities.file_util import save_json_file
-from src.utilities.file_util import generate_filename
+from utilities.file_util import generate_filename
 import re
-import csv
 
 def extract_html_tables(extract_response: List[Dict], output_dir: str) -> None:
     """
@@ -400,7 +398,7 @@ def are_textboxes_tabular(bbox1: Tuple[float, float, float, float], bbox2: Tuple
         log.error(f"An error occurred while checking for tabular layout: {e}. Bounding Box 1: {bbox1}. Bounding Box 2: {bbox2}")
         return False
     
-def get_table_pages_from_json(json_data: List[Dict]) -> List[int]:
+def get_table_pages_from_unstructured_json(json_data: List[Dict]) -> List[int]:
     """
     Extracts the page numbers of tables from the JSON data.
 
@@ -439,3 +437,13 @@ def get_table_pages_from_json(json_data: List[Dict]) -> List[int]:
     except Exception as e:
         log.error(f"An unexpected error occurred: {e} when processing table pages from the JSON.")
         return []  
+
+def find_page_number(text):
+
+    page_no_pattern = r"(?:Page|page|pg)\s(?:\d+|[ivx])+"
+
+    # Find chapters, sections, and figures
+    #page_no = re.findall(page_no_pattern, text)
+    page_no = re.match(page_no_pattern, text, re.IGNORECASE)
+
+    return page_no
