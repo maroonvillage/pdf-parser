@@ -11,10 +11,6 @@ from pdfminer.converter import PDFPageAggregator
 from pdfminer.pdftypes import resolve1
 import re
 import sys
-#from pdfminer.high_level import extract_pages
-#from pdfminer.layout import LTTextContainer, LTChar
-
-
 
 from sentence_transformers import SentenceTransformer
 from processors.element_processors import *
@@ -465,6 +461,10 @@ def generate_cypher_queries(json_data: List[Dict]) -> List[str]:
         log.error(f"An error occurred when generating cypher queries. Error: {e}")
         return []
 
+def create_textbox_guid_tuples(textboxes: List[LTTextBoxHorizontal]) -> List[Tuple[LTTextBoxHorizontal, str]]:
+    textbox_guid_tuples = [(textbox, generate_guid()) for textbox in textboxes]
+    return textbox_guid_tuples
+
 def extract_textboxes(pdf_path, output_file):
     """Iterates PDF Document and writes textboxes to a file."""
     textboxes = []
@@ -472,7 +472,7 @@ def extract_textboxes(pdf_path, output_file):
     with open(output_file, 'w') as wfile:
         for page_layout in extract_pages(pdf_path):
             #print(page_layout.pageid)
-            if(page_layout.pageid >= 27 and page_layout.pageid <= 29):
+            if(page_layout.pageid >= 8 and page_layout.pageid <= 14):
                 for element in page_layout:
                     if isinstance(element, LTTextBoxHorizontal):
                         textboxes.append(element)
@@ -490,6 +490,7 @@ def extract_textboxes_by_pageid(pdf_path, page_id):
                 if isinstance(element, LTTextBoxHorizontal):
                     textboxes.append(element)
     
+    textboxes.sort(key=lambda x: (-x.y0, x.x0))
     return textboxes
 
 def sort_textboxes(textboxes):
@@ -539,10 +540,10 @@ def add_table_textboxes_to_linked_list(textboxes, header_footer_dict) -> DoublyL
     found_table = False
     previous_textbox_id = None
     # Iterate through the textboxes
-    for textbox in textboxes:
+    for textbox, guid in textboxes:
         
         if found_table:
-            textbox_id = generate_guid()
+            textbox_id = guid
             bounding_box = BoundingBox(textbox_id, ((textbox.x0, textbox.y0), (textbox.x1, textbox.y1)))
             
             logger.debug(f"Processing textbox: {textbox_id}")
@@ -555,35 +556,37 @@ def add_table_textboxes_to_linked_list(textboxes, header_footer_dict) -> DoublyL
                 #Check current text box to see if it is part of the same table
                 #Check if it is part of the header/footer
                 if(text_box_text in header_footer_dict['header'] or text_box_text in header_footer_dict['footer']):
-                    logger.debug(f"not a: header or footer text box: {bounding_box}")
+                    logger.debug(f"a header or footer: {text_box_text}")
                     continue
                 #Check if it is a page number
                 if(current_text_box.find_page_number(text_box_text)):
-                    logger.debug(f"not a page number")
+                    logger.debug(f"a page number {text_box_text}")
                     continue
                 #Check if it contains section text
-                if(current_text_box.find_section(text_box_text)):
-                    logger.debug(f"not a section")
-                    continue
+                #if(current_text_box.find_section(text_box_text)):
+                #    logger.debug(f"not a section")
+                #    continue
                 #Check if it contains appendix text
-                if(current_text_box.find_appendix(text_box_text)):
-                    logger.debug(f"not an appendix")
-                    continue
+                #if(current_text_box.find_appendix(text_box_text)):
+                #    logger.debug(f"not an appendix")
+                #    continue
                 #Check if it contains figure text
-                if(current_text_box.find_figures(text_box_text)):
-                    logger.debug(f"not a figure")
-                    continue
+                #if(current_text_box.find_figures(text_box_text)):
+                #    logger.debug(f"not a figure")
+                #    continue
                 
                 #Compare the bounding box coordinates of the current textbox with the previous textbox
-
+                """
                 if((textbox.y0 == last_node.data.y0 and textbox.x0 > last_node.data.x0) or 
                    (textbox.y0 < last_node.data.y0 and textbox.x0 == last_node.data.x0)):
                         linked_list.append(bounding_box)
                         logger.debug(f"Added textbox to linked list: {bounding_box}")
-                        
-                
+                """
+                if(textbox.y0 < last_node.data.y0):
+                    linked_list.append(textbox_id)
+                    logger.debug(f"Added textbox to linked list: {bounding_box}")
             else:
-                linked_list.append(bounding_box)
+                linked_list.append(textbox_id)
                 logger.debug(f"Added textbox to linked list: {bounding_box}")
                 
             previous_textbox_id = textbox_id
@@ -596,18 +599,88 @@ def add_table_textboxes_to_linked_list(textboxes, header_footer_dict) -> DoublyL
     
     return linked_list
 
+def extract_table_content(textboxes, header_footer_dict) -> List[Dict]:
+    logger = configure_logger("pdf_test_parser.extract_table_content")
 
+    found_table = False
+    table_title = None
+    table_textboxes = []
+    
+    for textbox in textboxes:
+        current_text_box = get_element_processor(textbox)
+        text_box_text = textbox.get_text()
+        if found_table:
+
+                
+            #Check current text box to see if it is part of the same table
+            #Check if it is part of the header/footer
+            if(text_box_text in header_footer_dict['header'] or text_box_text in header_footer_dict['footer']):
+                logger.debug(f"a header or footer: {text_box_text}")
+                continue
+            #Check if it is a page number
+            if(current_text_box.find_page_number(text_box_text)):
+                logger.debug(f"a page number {text_box_text}")
+                continue
+            
+            table_textboxes.append(textbox)
+            
+        match = re.match(r"^(Table\s+\d+[\s\S]*)", text_box_text, re.IGNORECASE)
+        if match:
+            table_title = match.group(0).strip()
+            logger.debug(f"Found table title: {table_title}")
+            found_table = True
+            
+    #table_textboxes.sort(key=lambda x: (-x.y0, x.x0))
+    return table_textboxes
+            
+def extract_table_content_copilotgenerated(json_data):
+    table_title = None
+    table_textboxes = []
+
+    # Identify the table title and collect text boxes
+    for page in json_data:
+        for element in page['elements']:
+            if element['type'] == 'TextBox':
+                content = element['content']
+                if 'Table 1: Categories and subcategories for the GOVERN function' in content:
+                    table_title = content
+                elif table_title:
+                    table_textboxes.append(element)
+
+    # Sort text boxes by their bounding box coordinates (top to bottom, left to right)
+    table_textboxes #.sort(key=lambda x: (-x['bbox'][1], x['bbox'][0]))
+
+    return table_title, table_textboxes
     
 def main():
 
     print('Hello, world from pdf_test_parse main!')
     
+    """
+    # Example usage
+    json_path = 'data/output/parsed/AI__json_output_2025-01-13_09-14-42_TEST.json'
+    with open(json_path, 'r') as file:
+        json_data = json.load(file)
+
+    #print(json_data['pages'])
+    
+    #sys.exit(0)
+    
+    table_title, table_textboxes = extract_table_content_copilotgenerated(json_data['pages'])
+
+    print(f"Table Title: {table_title}")
+    for textbox in table_textboxes:
+        print(f"Content: {textbox['content']}, BBox: {textbox['bbox']}")
+    
+    sys.exit(0)
+    """
+    
     #TODO: Write a function to get header, footer and page number from the PDF without using the Unstructured API
     header_footer_dict = get_unstructured_header_footer_elements('data/output/downloads/api_responses/AIRiskManagementNISTAI1001_unstructured_response.json')
     
-    print (header_footer_dict)
+    #print (header_footer_dict)
     
-    
+    """
     text ="NIST AI 100-1"
     if(text in header_footer_dict['header']):
         print('This text is in the header')
@@ -617,16 +690,24 @@ def main():
         print('This text is a page number')
     else:
         print('This text is not in the header, footer or page number')
-
+    """
     
+    """
      # Extract textboxes from the PDF
-    #textboxes = extract_textboxes('docs/AI_Risk_Management-NIST.AI.100-1.pdf', 'data/output/pdf_output_pdf_test_parse.txt')
+    textboxes = extract_textboxes('docs/ISO+IEC+23894-2023.pdf', 'data/output/pdf_output_pdf_test_parse.txt')
     
-    
-    
+    with open('data/output/ISO_table_textboxes.txt', 'w') as wfile:
+        for textbox in textboxes:
+            wfile.write(f"TextBox: {textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})")
+            wfile.write('\n\n')    
+            
+    sys.exit(0)
+    """
+          
     #TODO: Write function to get page ids that contain tables without using the Unstructured API
     #Get Page Ids and Titles for tables from Unstructured API
     extract_response = read_json_file('data/output/downloads/api_responses/AIRiskManagementNISTAI1001_unstructured_response.json')
+    #extract_response = read_json_file('data/output/downloads/api_responses/ISOIEC238942023_unstructured_response.json')
     results = get_table_pages_from_unstructured_json(extract_response)
     pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
     all_textboxes = []
@@ -637,17 +718,45 @@ def main():
         textboxes = extract_textboxes_by_pageid(pdf_path, page_id)
         all_textboxes.extend(textboxes)
     
-    
-        
+    with open('data/output/RMF_table_textboxes.txt', 'w') as wfile:
+        for textbox in all_textboxes:
+            wfile.write(f"TextBox: {textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})")
+            wfile.write('\n\n')
+            
+   
     #print(all_textboxes)
         
-        
+    #textbox_guid_tuples = create_textbox_guid_tuples(all_textboxes)
+    #print(textbox_guid_tuples)
+     
+    sorted_textboxes = extract_table_content(all_textboxes, header_footer_dict)
+    
+    #print(sorted_textboxes)
+    
+    with open('data/output/RMF_table_sorted_textboxes.txt', 'w') as wfile:
+        for textbox in sorted_textboxes:
+            wfile.write(f"TextBox: {textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})")
+            wfile.write('\n\n')
+            
     #TODO: Call a function to add the table textboxes to a linked-list data structure
-    dll = add_table_textboxes_to_linked_list(all_textboxes, header_footer_dict)
+    #dll = add_table_textboxes_to_linked_list(textbox_guid_tuples, header_footer_dict)
     
-    print(dll.print_list())
+    #print(dll.print_list())
     
-    sys.exit(0)
+    sys.exit(0)  
+     
+    for textbox, guid in textbox_guid_tuples:
+        bounding_box = BoundingBox(guid, ((textbox.x0, textbox.y0), (textbox.x1, textbox.y1)))
+
+        if(dll.search(bounding_box)):
+            print(f"Found: {guid}")
+         
+    #print(dll.print_list())
+    
+    
+    
+    
+         
     #'docs/ISO+IEC+23894-2023.pdf
     
     
