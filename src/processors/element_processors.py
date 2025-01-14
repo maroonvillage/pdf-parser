@@ -1,30 +1,16 @@
-""" from pdfminer.pdfparser import PDFParser
-from pdfminer.pdfdocument import PDFDocument
-from pdfminer.pdfpage import PDFPage
-#from pdfminer.pdfresource import PDFResourceManager
-from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
-    LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTContainer, LTTextGroupTBRL
-from pdfminer.converter import PDFPageAggregator
-from pdfminer.interpreter import PDFPageInterpreter, PDFResourceManager """
 
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
-from pdfminer.converter import TextConverter
-from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
-    LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTComponent, LTContainer
-from pdfminer.pdfdocument import PDFDocument
-from pdfminer.pdfparser import PDFParser
-from pdfminer.pdftypes import resolve1
-from pdfminer.converter import PDFPageAggregator
+from pdfminer.layout import LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
+    LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTContainer, LTCurve
 
 import logging
 import re
 from typing import List, Optional
-import spacy
 from abc import ABC, abstractmethod
-from document import Document, Section, Figure
+from document import Document, Figure
 from matcher_patterns import get_matcher
 from utilities.parse_util import replace_extra_space, find_page_number
+from pdf_parse_document import Element, Page
+from generators.guid_generator import generate_guid
 
 def get_element_processor(element, nlp=None, config=None):
     
@@ -60,7 +46,7 @@ class TextElementProcessor(ABC):
     """Abstract class for processing layout elements."""
 
     @abstractmethod
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
         pass
 
 
@@ -70,11 +56,20 @@ class TextBoxProcessor(TextElementProcessor):
       self.nlp = nlp
       self.config = config
     
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
         first_line = ''
         line_count = 0
+        element_id = generate_guid()
+        page_element = Element(element_id, "TextBox")
+        
         textbox_content = element.get_text().lstrip().rstrip()
-
+        
+        page_element.set_content(textbox_content)
+        page_element.set_bbox(element.bbox)
+        page_element.set_index(element.index)
+        page.add_element(page_element)
+        
+        
         if (textbox_content != ''):
             content_lines_list = textbox_content.split('\n')
             first_line = content_lines_list[0]
@@ -83,6 +78,8 @@ class TextBoxProcessor(TextElementProcessor):
         x0, y0, x1, y1 = element.bbox
         width = x1 - x0
         height = y1 - y0
+        
+        
         
         wfile.write(f"Inside process_element... \n")
         wfile.write("####################################################### \n\n\n")
@@ -344,44 +341,61 @@ class TextBoxProcessor(TextElementProcessor):
 
 
 class TextLineProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
-        wfile.write(f"TextLine: {element.get_text()}\n")
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+        element_id = generate_guid()
+        page_element = Element(element_id, "TextLine")
+        page_element.set_bbox(element.bbox)
+        page.add_element(page_element)
+        wfile.write(f"TextLine: {element.bbox}\n")
 
 class CharProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
         wfile.write(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}\n")
 
 class LineProcessor(TextElementProcessor):
-     def process_element(self, element, document: Document, current_section_header: str, wfile):
+     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+        element_id = generate_guid()
+        page_element = Element(element_id, "Line")
+        page_element.set_bbox(element.bbox)
+        page.add_element(page_element)
         wfile.write(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})\n")
 
 class RectProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
-         wfile.write(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})\n")
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+        element_id = generate_guid()
+        page_element = Element(element_id, "Rectangle")
+        page_element.set_bbox(element.bbox)
+        page.add_element(page_element)
+        wfile.write(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})\n")
 
 class FigureProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+        element_id = generate_guid()
+        page_element = Element(element_id, "Figure")
+        page_element.set_bbox(element.bbox)
+        page_element.set_content(element.matrix)
+        page.add_element(page_element)
         wfile.write(f"Figure with width {element.width} and height {element.height}\n")
 
 class ImageProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
         wfile.write(f"Image found with size: {element.srcsize} \n")
 
 class VerticalLineProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
         wfile.write(f"Vertical line found: {element.get_text()} \n")
 
 class TextGroupProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
         wfile.write(f"Text Group found: {element.get_text()} \n")
 
 class ContainerProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
         wfile.write(f"Found CONTAINER ... {element.bbox}\n")
 
 class TextGroupTBRLProcessor(TextElementProcessor):
-     def process_element(self, element, document: Document, current_section_header: str, wfile):
+     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
          wfile.write(f"Found Text Group TBRL ... {element.bbox}\n")
 class CurvedLineProcessor(TextElementProcessor):
-     def process_element(self, element, document: Document, current_section_header: str, wfile):
+     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
          wfile.write(f"Found Curved Line found ... {element.bbox}\n")
