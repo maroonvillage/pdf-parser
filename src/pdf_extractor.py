@@ -3,17 +3,11 @@ from typing import List, Dict
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import TextConverter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
-    LTLine, LTRect, LTFigure, LTImage, LTTextLineVertical, LTTextGroup, LTTextGroupTBRL, LTCurve, LTContainer
+from pdfminer.layout import LAParams
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfparser import PDFParser
-from pdfminer.pdftypes import resolve1
 from pdfminer.converter import PDFPageAggregator
-from langchain_core.output_parsers import StrOutputParser
 from sentence_transformers import SentenceTransformer
-from langchain.prompts import PromptTemplate
-from langchain_community.llms import Ollama
-from langchain.chains import LLMChain
 import tempfile
 
 import os
@@ -26,10 +20,11 @@ from logger_config import configure_logger
 from matcher_patterns import *
 from api_caller import call_unstructured
 
-from src.utilities.file_util import *
-from src.utilities.parse_util import *
+from utilities.file_util import *
+from utilities.parse_util import *
 
-from document import Document, Section, Figure, Table
+from document import Document, Section
+from pdf_parse_document import PDFParseDocument, Page
 
 from data.pinecone_vector_db import PineConeVectorDB
 from data.graph_db import GraphDB
@@ -173,6 +168,7 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
 
     try:
         document_json = Document(output_json_path,[])
+        pdf_parse_document = PDFParseDocument(pdf_file_path, [])
         for line in lines_list:
             cleaned_line = strip_characters(line, config["patterns_to_strip"])
             cleaned_line = replace_extra_space(cleaned_line)
@@ -198,11 +194,14 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                         layout = device.get_result()
                         wfile.write(f'PageId: {page.pageid} Page Number: {page_number}\n')
                         wfile.write(f'This dimensions for this page are: {layout.height} height, {layout.width} width\n')
+                        pdf_page = Page(page.pageid, page_number)
+                        pdf_page.set_bbox((layout.x0, layout.y0, layout.x1, layout.y1))
+                        pdf_parse_document.add_page(pdf_page)
                         for element in layout:
                             try:
                                 processor = get_element_processor(element, nlp, config)
                                 #None
-                                current_section_header = processor.process_element(element, document_json, current_section_header, wfile)
+                                current_section_header = processor.process_element(element, document_json, current_section_header, wfile, page=pdf_page)
                             except ValueError as ve:
                                    logger.warning(f"Unsupported element type: {element}. Error: {ve}")
                             except Exception as e:
@@ -212,6 +211,12 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                     
 
         save_file(output_json_path, document_json.to_json())
+        
+        file_name_with_extension = os.path.basename(output_json_path)
+        file_name, file_extension = os.path.splitext(file_name_with_extension)
+        save_file(f"data/output/parsed/{file_name}_TEST.json", pdf_parse_document.to_json())
+        #save_file("data/output/parsed/pdf_parse_document_TEST2.json", pdf_parse_document.to_json())
+        
     except FileNotFoundError as e:
             logger.error(f"convert_pdf_to_json - {e}")
             raise
@@ -297,7 +302,7 @@ def main():
     output_folder = 'data/output'
     output_folder_parsed = 'data/output/parsed'
     
-    pdf_file_name = 'ISO+IEC+23894-2023.pdf' 
+    pdf_file_name = 'AI_Risk_Management-NIST.AI.100-1.pdf'
     #'AI_Risk_Management-NIST.AI.100-1.pdf'
     #'ISO+IEC+23894-2023.pdf' 
     
@@ -358,7 +363,7 @@ def main():
             
             logger.info(f'PDF text has been sucessfully converted to JSON {json_output_path}.')
             
-           
+            sys.exit(0) #TEMPORARY - REMOVE LATER
 
             #Once a call to the Unstructured API is made, the response is saved to a file.  
             # This precludes the need to make repeated calls to the API.
