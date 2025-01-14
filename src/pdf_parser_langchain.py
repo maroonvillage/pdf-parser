@@ -1,4 +1,3 @@
-import pdfminer.six
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.document_loaders import PDFMinerLoader
 
