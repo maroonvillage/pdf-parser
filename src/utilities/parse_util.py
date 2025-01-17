@@ -5,6 +5,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from bs4 import BeautifulSoup
 from utilities.file_util import generate_filename
 import re
+from pdfminer.layout import LTTextBoxHorizontal
+from pdfminer.high_level import extract_pages
 
 def extract_html_tables(extract_response: List[Dict], output_dir: str) -> None:
     """
@@ -447,3 +449,30 @@ def find_page_number(text):
     page_no = re.match(page_no_pattern, text, re.IGNORECASE)
 
     return page_no
+
+def get_header_footer_text(pdf_path,top_margin=20, bottom_margin=20) -> str:
+    """Extracts page elements like headers and footers from the PDF document
+       Returns a list of dictionaries containing the text and type of each element.
+    """
+    page_element_text = {
+        
+        "header": "",
+        "footer": ""
+    }
+    for page_layout in extract_pages(pdf_path):
+        #print(f"{page_layout.x0}, {page_layout.y0}, {page_layout.x1}, {page_layout.y1}" )
+        for element in page_layout:
+            if isinstance(element, LTTextBoxHorizontal):
+                element_text = element.get_text()
+                element_text = element_text.replace("\n","")
+                if(element_text == "ISO/IEC 23894:2023(E)"):
+                    print(f"{page_layout.y1}: {element.y0}")
+                
+                if((page_layout.y1 - element.y0) <= top_margin):
+                    if(element_text not in page_element_text["header"]):
+                        page_element_text["header"] += f"{element_text} "
+                elif(element.y0 <= bottom_margin):    
+                    if(element_text not in page_element_text["footer"]):
+                        page_element_text["footer"] += f"{element_text} "
+                                  
+    return page_element_text
