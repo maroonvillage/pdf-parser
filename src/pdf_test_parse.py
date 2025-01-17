@@ -19,6 +19,7 @@ from generators.guid_generator import *
 from utilities.file_util import *
 from utilities.parse_util import *
 
+from document import Table
 from doubly_linked_list import DoublyLinkedList
 from bounding_box import BoundingBox
 
@@ -472,6 +473,7 @@ def extract_textboxes(pdf_path, output_file):
     with open(output_file, 'w') as wfile:
         for page_layout in extract_pages(pdf_path):
             #print(page_layout.pageid)
+            print(f"{page_layout.x0}, {page_layout.y0}, {page_layout.x1}, {page_layout.y1}" )
             if(page_layout.pageid >= 8 and page_layout.pageid <= 14):
                 for element in page_layout:
                     if isinstance(element, LTTextBoxHorizontal):
@@ -490,7 +492,8 @@ def extract_textboxes_by_pageid(pdf_path, page_id):
                 if isinstance(element, LTTextBoxHorizontal):
                     textboxes.append(element)
     
-    textboxes.sort(key=lambda x: (-x.y0, x.x0))
+    #textboxes.sort(key=lambda x: (-x.y0, x.x0))
+    textboxes.sort(key=lambda x: (-x.y1, x.x1))
     return textboxes
 
 def sort_textboxes(textboxes):
@@ -508,6 +511,34 @@ def insert_textbox(sorted_textboxes, new_textbox):
     # If not found, append to the end
     sorted_textboxes.append(new_textbox)
 
+def get_header_footer_text(pdf_path,top_margin=20, bottom_margin=20) -> str:
+    """Extracts page elements like headers and footers from the PDF document
+       Returns a list of dictionaries containing the text and type of each element.
+    """
+    page_element_text = {
+        
+        "header": "",
+        "footer": ""
+    }
+    for page_layout in extract_pages(pdf_path):
+        #print(f"{page_layout.x0}, {page_layout.y0}, {page_layout.x1}, {page_layout.y1}" )
+        for element in page_layout:
+            if isinstance(element, LTTextBoxHorizontal):
+                element_text = element.get_text()
+                element_text = element_text.replace("\n","")
+                if(element_text == "ISO/IEC 23894:2023(E)"):
+                    print(f"{page_layout.y1}: {element.y0}")
+                
+                if((page_layout.y1 - element.y0) <= top_margin):
+                    if(element_text not in page_element_text["header"]):
+                        page_element_text["header"] += f"{element_text} "
+                elif(element.y0 <= bottom_margin):    
+                    if(element_text not in page_element_text["footer"]):
+                        page_element_text["footer"] += f"{element_text} "
+                                  
+    return page_element_text
+
+    
 def get_unstructured_header_footer_elements(response_json_file) -> str:
     """Extracts page elements like headers, footers, and page numbers from the Unstructured API response.
        Returns a list of dictionaries containing the text and type of each element.
@@ -614,6 +645,7 @@ def extract_table_content(textboxes, header_footer_dict) -> List[Dict]:
                 
             #Check current text box to see if it is part of the same table
             #Check if it is part of the header/footer
+            #text_box_text = text_box_text.replace("\n", "")
             if(text_box_text in header_footer_dict['header'] or text_box_text in header_footer_dict['footer']):
                 logger.debug(f"a header or footer: {text_box_text}")
                 continue
@@ -627,6 +659,9 @@ def extract_table_content(textboxes, header_footer_dict) -> List[Dict]:
         match = re.match(r"^(Table\s+\d+[\s\S]*)", text_box_text, re.IGNORECASE)
         if match:
             table_title = match.group(0).strip()
+            if(re.match(r"(continued|cont\.{1}?)", table_title, re.IGNORECASE)):
+                continue
+            table_textboxes.append(textbox)
             logger.debug(f"Found table title: {table_title}")
             found_table = True
             
@@ -651,7 +686,110 @@ def extract_table_content_copilotgenerated(json_data):
     table_textboxes #.sort(key=lambda x: (-x['bbox'][1], x['bbox'][0]))
 
     return table_title, table_textboxes
+
+def generate_json_table_output(textboxes: List[Dict], output_path: str):
     
+    table_textboxes = []
+    row_count = 0
+    col_count = 0
+    previous_y1 = None
+    previous_x0 = None
+    for textbox in textboxes:
+        box = textbox.bbox
+        content = textbox.get_text()
+        
+        match = re.match(r"^(Table\s+\d+[\s\S]*)", content, re.IGNORECASE)
+        if not match:
+            if previous_y1 is None:
+                previous_y1 = box[1]
+                row_count += 1
+            
+            if previous_x0 is None:
+                previous_x0 = box[0]
+                col_count += 1
+                
+            if box[3] < previous_y1:
+                row_count += 1
+                previous_y1 = box[3]
+                
+            if box[0] > previous_x0 and box[1] == previous_y1:
+                col_count += 1
+                previous_x0 = box[0]
+            
+        
+        """ table_textboxes.append({
+            "content": textbox.get_text(),
+            "bbox": textbox.bbox
+        }) """
+    
+    print(f"Row Count: {row_count}, Column Count: {col_count}")
+    #with open(output_path, 'w') as file:
+        #json.dump(table_textboxes, file, indent=4)
+        
+def textboxes_to_tabular_json_gemini(textboxes: List[Dict[str,Any]], header_footer_dict: List[Dict], y_tolerance: float = 10.0) -> List[Dict[str, Any]]:
+    """
+        Parses a list of text boxes ordered by their Y1 value and returns an array that simulates a table
+         Parameters:
+             textboxes (List[Dict[str, Any]]):  A list of textboxes, with x and y coordinates.
+        Returns:
+            List[Dict[str, Any]]: An array that simulates a table.
+    """
+    logger = configure_logger("pdf_test_parser.textboxes_to_tabular_json_gemini")
+    try:
+        if not textboxes:
+            logger.warning("The textboxes list is empty.")
+            return []
+        rows = [] #Store all the row values.
+        current_row = [] #Store current row of textboxes.
+        current_y = None #Store current y value for detecting new rows.
+        #for i, textbox in enumerate(textboxes):
+        for textbox in textboxes:
+            x0, y0, x1, y1 = textbox.bbox
+            textbox_content = textbox.get_text()
+            #logger.debug(f"Textbox content: {textbox_content}")
+            #Check current text box to see if it is part of the same table
+            #Check if it is part of the header/footer
+            textbox_content = textbox_content.replace("\n","")
+            if(textbox_content in header_footer_dict['header'] or textbox_content in header_footer_dict['footer']):
+                logger.debug(f"Textbox contains a header or footer: {textbox_content}")
+                continue
+            current_text_box = get_element_processor(textbox)
+            #Check if it is a page number
+            if(current_text_box.find_page_number(textbox_content)):
+                logger.debug(f"Textbox contains a page number {textbox_content}")
+                continue
+            
+            if current_y is None:
+                #Initialize the first y value.
+                current_y = y1
+                current_row.append(textbox)
+            elif abs(y1 - current_y) <= y_tolerance:
+                #If this is on the same row, then add to current row
+                current_row.append(textbox)
+            else:
+                #Not in same row, so process current row, and create new row
+                sorted_row = sorted(current_row, key=lambda tb: tb.bbox[0])
+                row_data = {}
+                for index, tb in enumerate(sorted_row):
+                   row_data[f'Column {index+1}'] = tb.get_text()
+                rows.append(row_data)
+                current_row = [textbox]
+                current_y = y1 # New y-value.
+        
+        #Process the last row
+        if current_row:
+            sorted_row = sorted(current_row, key=lambda tb: tb.bbox[0])
+            row_data = {}
+            for index, tb in enumerate(sorted_row):
+                row_data[f'Column {index+1}'] = tb.get_text()
+            rows.append(row_data)
+        logger.info(f'Successfully processed {len(rows)} rows from textboxes.')
+        return rows
+
+    except Exception as e:
+         logger.error(f"An unexpected error occurred: {e} when processing list of textboxes.")
+         return []        
+        
 def main():
 
     print('Hello, world from pdf_test_parse main!')
@@ -674,23 +812,29 @@ def main():
     
     sys.exit(0)
     """
+    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+    header_footer_text = get_header_footer_text(pdf_path,top_margin=50, bottom_margin=50)
+    
+    #print (header_footer_text)
+    #sys.exit(0)
     
     #TODO: Write a function to get header, footer and page number from the PDF without using the Unstructured API
-    header_footer_dict = get_unstructured_header_footer_elements('data/output/downloads/api_responses/AIRiskManagementNISTAI1001_unstructured_response.json')
+    #header_footer_dict = get_unstructured_header_footer_elements('data/output/downloads/api_responses/AIRiskManagementNISTAI1001_unstructured_response.json')
     
-    #print (header_footer_dict)
+    print (header_footer_text)
+    #sys.exit(0)
     
-    """
-    text ="NIST AI 100-1"
-    if(text in header_footer_dict['header']):
+    text ="NIST AI 100-1\n"
+    text = text.replace("\n", "")
+    if(text in header_footer_text['header']):
         print('This text is in the header')
-    elif(text in header_footer_dict['footer']):
+    elif(text in header_footer_text['footer']):
         print('This text is in the footer')
-    elif(text in header_footer_dict['pagenumber']):
-        print('This text is a page number')
+   
     else:
         print('This text is not in the header, footer or page number')
-    """
+        
+    sys.exit(0)
     
     """
      # Extract textboxes from the PDF
@@ -709,7 +853,7 @@ def main():
     extract_response = read_json_file('data/output/downloads/api_responses/AIRiskManagementNISTAI1001_unstructured_response.json')
     #extract_response = read_json_file('data/output/downloads/api_responses/ISOIEC238942023_unstructured_response.json')
     results = get_table_pages_from_unstructured_json(extract_response)
-    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+   
     all_textboxes = []
     for result in results:
         print(f"{result['page_number']} - {result['title']}")
@@ -729,15 +873,31 @@ def main():
     #textbox_guid_tuples = create_textbox_guid_tuples(all_textboxes)
     #print(textbox_guid_tuples)
      
-    sorted_textboxes = extract_table_content(all_textboxes, header_footer_dict)
+    sorted_textboxes = extract_table_content(all_textboxes, header_footer_text)
     
-    #print(sorted_textboxes)
+    for st in sorted_textboxes:
+        print(st)
+        print()
+    
+    sys.exit(0)
     
     with open('data/output/RMF_table_sorted_textboxes.txt', 'w') as wfile:
         for textbox in sorted_textboxes:
             wfile.write(f"TextBox: {textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})")
             wfile.write('\n\n')
             
+    
+    #TODO: Iterate throught the textboxes to produce the JSON output for the tables
+    #generate_json_table_output(sorted_textboxes, 'data/output/RMF_table_json_output.json')
+    
+    rows = textboxes_to_tabular_json_gemini(sorted_textboxes, header_footer_text)
+    json_tables = Table("Table title")
+    for row in rows:
+        #json_tables.add_row(row)
+        print(f"row: {row}")
+        print()
+        
+    #print(json_tables)
     #TODO: Call a function to add the table textboxes to a linked-list data structure
     #dll = add_table_textboxes_to_linked_list(textbox_guid_tuples, header_footer_dict)
     
