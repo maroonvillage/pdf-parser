@@ -153,7 +153,7 @@ def create_toc_dictionary(lines_list: List[str]) -> Dict[str, int]:
         log.error(f"An unexpected error occurred: {e}, input is: {lines_list}")
         return {}
 
-def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_list, nlp, config=None):
+def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_list, nlp, header_footer_text, config=None):
     logger = configure_logger("convert_pdf_to_json")
     logger.info(f'Inside convert_pdf_to_json ... the path is: {pdf_file_path}')
     
@@ -201,7 +201,7 @@ def convert_pdf_to_json(pdf_file_path, output_txt_path, output_json_path, lines_
                             try:
                                 processor = get_element_processor(element, nlp, config)
                                 #None
-                                current_section_header = processor.process_element(element, document_json, current_section_header, wfile, page=pdf_page)
+                                current_section_header = processor.process_element(element, document_json, current_section_header, wfile, page=pdf_page, header_footer_text=header_footer_text)
                             except ValueError as ve:
                                    logger.warning(f"Unsupported element type: {element}. Error: {ve}")
                             except Exception as e:
@@ -359,7 +359,9 @@ def main():
             
             logger.info(f'Table for contents of document {pdf_path} sucessfully extracted.')
             
-            convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp)
+            header_footer_dict = get_header_footer_text(pdf_path)
+            
+            convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp,header_footer_dict)
             
             logger.info(f'PDF text has been sucessfully converted to JSON {json_output_path}.')
             
