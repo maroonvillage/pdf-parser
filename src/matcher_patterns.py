@@ -41,6 +41,17 @@ def get_figure_pattern():
 
     return pattern_list
 
+def get_bibliography_pattern():
+    bibliography_pattern = [{"LOWER": "bibliography"}, {"OP": "?"}]
+    pattern_list = [bibliography_pattern]
+
+    return pattern_list
+
+def get_references_pattern():
+    references_pattern = [{"LOWER": "bibliography"}, {"OP": "?"}]
+    pattern_list = [references_pattern]
+
+    return pattern_list
 
 def create_pattern(terms: List[str]) -> List[Dict]:
     """Creates a list of Spacy patterns from a list of terms.
@@ -73,7 +84,9 @@ def get_matcher(nlp: spacy.language.Language, config: Dict=None) -> Matcher:
                 "ExecutiveSummaryMethods": ["executive", "summary"],
                 "ForewordMethods": ["foreword"],
                 "IntroMethods": ["introduction"],
-                "SummaryMethods": ["summary"]
+                "SummaryMethods": ["summary"],
+                "BibliographyMethods": ["bibliography"],
+                "ReferencesMethods": ["references"]
                 }
             }
     
