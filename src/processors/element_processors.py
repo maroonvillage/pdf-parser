@@ -46,7 +46,7 @@ class TextElementProcessor(ABC):
     """Abstract class for processing layout elements."""
 
     @abstractmethod
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         pass
 
 
@@ -56,13 +56,22 @@ class TextBoxProcessor(TextElementProcessor):
       self.nlp = nlp
       self.config = config
     
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         first_line = ''
         line_count = 0
         element_id = generate_guid()
         page_element = Element(element_id, "TextBox")
         
         textbox_content = element.get_text().lstrip().rstrip()
+        
+        #Check for header/footer text here 
+        if(header_footer_text):
+            if(textbox_content.replace("\n", "") in header_footer_text):
+                return
+            
+        #Check for page numbers
+        if(self.find_page_number(textbox_content)):
+            return
         
         page_element.set_content(textbox_content)
         page_element.set_bbox(element.bbox)
@@ -341,7 +350,7 @@ class TextBoxProcessor(TextElementProcessor):
 
 
 class TextLineProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         element_id = generate_guid()
         page_element = Element(element_id, "TextLine")
         page_element.set_bbox(element.bbox)
@@ -349,11 +358,11 @@ class TextLineProcessor(TextElementProcessor):
         wfile.write(f"TextLine: {element.bbox}\n")
 
 class CharProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         wfile.write(f"Character: {element.get_text()}, Font: {element.fontname}, Size: {element.size}\n")
 
 class LineProcessor(TextElementProcessor):
-     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         element_id = generate_guid()
         page_element = Element(element_id, "Line")
         page_element.set_bbox(element.bbox)
@@ -361,7 +370,7 @@ class LineProcessor(TextElementProcessor):
         wfile.write(f"Line from ({element.x0}, {element.y0}) to ({element.x1}, {element.y1})\n")
 
 class RectProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         element_id = generate_guid()
         page_element = Element(element_id, "Rectangle")
         page_element.set_bbox(element.bbox)
@@ -369,7 +378,7 @@ class RectProcessor(TextElementProcessor):
         wfile.write(f"Rectangle with bounding box: ({element.x0}, {element.y0}) - ({element.x1}, {element.y1})\n")
 
 class FigureProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         element_id = generate_guid()
         page_element = Element(element_id, "Figure")
         page_element.set_bbox(element.bbox)
@@ -378,24 +387,24 @@ class FigureProcessor(TextElementProcessor):
         wfile.write(f"Figure with width {element.width} and height {element.height}\n")
 
 class ImageProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         wfile.write(f"Image found with size: {element.srcsize} \n")
 
 class VerticalLineProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         wfile.write(f"Vertical line found: {element.get_text()} \n")
 
 class TextGroupProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         wfile.write(f"Text Group found: {element.get_text()} \n")
 
 class ContainerProcessor(TextElementProcessor):
-    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+    def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
         wfile.write(f"Found CONTAINER ... {element.bbox}\n")
 
 class TextGroupTBRLProcessor(TextElementProcessor):
-     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
          wfile.write(f"Found Text Group TBRL ... {element.bbox}\n")
 class CurvedLineProcessor(TextElementProcessor):
-     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page):
+     def process_element(self, element, document: Document, current_section_header: str, wfile, page: Page, header_footer_text: str=None):
          wfile.write(f"Found Curved Line found ... {element.bbox}\n")
