@@ -1,7 +1,11 @@
 import json
 import re
-#from parse_util import strip_non_alphanumeric
 
+
+class Row:
+    def __init__(self, cells):
+        self.cells = cells
+        
 class Figure:
     def __init__(self, caption):
         self.caption = caption
@@ -9,6 +13,10 @@ class Figure:
 class Table:
     def __init__(self, title):
         self.title = title
+        self.rows = []
+        
+    def add_row(self, row):
+        self.rows.append(row)
 
 class Section:
     def __init__(self, heading):
