@@ -25,7 +25,7 @@ from document import Table
 from doubly_linked_list import DoublyLinkedList
 from bounding_box import BoundingBox
 
-from table_extractor import textboxes_to_tabular_json
+from table_extractor import textboxes_to_tabular_json, get_table_pages
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -623,7 +623,7 @@ def add_table_textboxes_to_linked_list(textboxes, header_footer_dict) -> DoublyL
                 
             previous_textbox_id = textbox_id
             
-        match = re.match(r"^(Table\s+\d+[\s\S]*)", textbox.get_text(), re.IGNORECASE)
+        match = find_table_pattern(textbox.get_text())
         if match:
             table_title = match.group(0).strip()
             found_table = True
@@ -657,7 +657,7 @@ def extract_table_content(textboxes, header_footer_dict) -> List[Dict]:
             
            
             
-        match = re.match(r"^(Table\s+\d+[\s\S]*)", text_box_text, re.IGNORECASE)
+        match = find_table_pattern(text_box_text)
         if match:
             table_title = match.group(0).strip()
             if(not re.match(r"(continued|cont\.{1}?)", table_title, re.IGNORECASE)):
@@ -700,7 +700,7 @@ def generate_json_table_output(textboxes: List[Dict], output_path: str):
         box = textbox.bbox
         content = textbox.get_text()
         
-        match = re.match(r"^(Table\s+\d+[\s\S]*)", content, re.IGNORECASE)
+        match = find_table_pattern(content)
         if not match:
             if previous_y1 is None:
                 previous_y1 = box[1]
@@ -832,7 +832,7 @@ def textboxes_to_tabular_json_2(textboxes: List[Dict[str,Any]], header_footer_di
                 continue
             
             #Check for table title/caption
-            table_title_match = re.match(r"^(Table\s+\d+[\s\S]*)", textbox_content, re.IGNORECASE)
+            table_title_match = find_table_pattern(textbox_content)
             if(table_title_match):
                 #Check for the string continued ...
                 table_title = table_title_match.group(0).strip()
@@ -948,8 +948,8 @@ def main():
     #Get Page Ids and Titles for tables from Unstructured API
     extract_response = read_json_file('data/output/downloads/api_responses/AIRiskManagementNISTAI1001_unstructured_response.json')
     #extract_response = read_json_file('data/output/downloads/api_responses/ISOIEC238942023_unstructured_response.json')
-    results = get_table_pages_from_unstructured_json(extract_response)
-   
+    #results = get_table_pages_from_unstructured_json(extract_response)
+    results = get_table_pages(pdf_path)
     all_textboxes = []
     for result in results:
         print(f"{result['page_number']} - {result['title']}")
@@ -957,6 +957,7 @@ def main():
         page_id = result['page_number']
         textboxes = extract_textboxes_by_pageid(pdf_path, page_id)
         all_textboxes.extend(textboxes)
+    sys.exit(0)
     
     with open('data/output/RMF_table_textboxes.txt', 'w') as wfile:
         for textbox in all_textboxes:
