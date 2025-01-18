@@ -526,8 +526,6 @@ def get_header_footer_text(pdf_path,top_margin=20, bottom_margin=20) -> str:
             if isinstance(element, LTTextBoxHorizontal):
                 element_text = element.get_text()
                 element_text = element_text.replace("\n","")
-                if(element_text == "ISO/IEC 23894:2023(E)"):
-                    print(f"{page_layout.y1}: {element.y0}")
                 
                 if((page_layout.y1 - element.y0) <= top_margin):
                     if(element_text not in page_element_text["header"]):
@@ -537,7 +535,6 @@ def get_header_footer_text(pdf_path,top_margin=20, bottom_margin=20) -> str:
                         page_element_text["footer"] += f"{element_text} "
                                   
     return page_element_text
-
     
 def get_unstructured_header_footer_elements(response_json_file) -> str:
     """Extracts page elements like headers, footers, and page numbers from the Unstructured API response.
@@ -654,17 +651,18 @@ def extract_table_content(textboxes, header_footer_dict) -> List[Dict]:
                 logger.debug(f"a page number {text_box_text}")
                 continue
             
-            table_textboxes.append(textbox)
+           
             
         match = re.match(r"^(Table\s+\d+[\s\S]*)", text_box_text, re.IGNORECASE)
         if match:
             table_title = match.group(0).strip()
-            if(re.match(r"(continued|cont\.{1}?)", table_title, re.IGNORECASE)):
-                continue
+            if(not re.match(r"(continued|cont\.{1}?)", table_title, re.IGNORECASE)):
+                table_textboxes.append(textbox)
+                logger.debug(f"Found table title: {table_title}")
+                found_table = True
+        else:
             table_textboxes.append(textbox)
-            logger.debug(f"Found table title: {table_title}")
-            found_table = True
-            
+             
     #table_textboxes.sort(key=lambda x: (-x.y0, x.x0))
     return table_textboxes
             
@@ -742,6 +740,9 @@ def textboxes_to_tabular_json_gemini(textboxes: List[Dict[str,Any]], header_foot
         rows = [] #Store all the row values.
         current_row = [] #Store current row of textboxes.
         current_y = None #Store current y value for detecting new rows.
+        tables = []
+        previous_table_title = None
+        current_table = Table("New Table")
         #for i, textbox in enumerate(textboxes):
         for textbox in textboxes:
             x0, y0, x1, y1 = textbox.bbox
@@ -758,7 +759,7 @@ def textboxes_to_tabular_json_gemini(textboxes: List[Dict[str,Any]], header_foot
             if(current_text_box.find_page_number(textbox_content)):
                 logger.debug(f"Textbox contains a page number {textbox_content}")
                 continue
-            
+                
             if current_y is None:
                 #Initialize the first y value.
                 current_y = y1
@@ -789,11 +790,102 @@ def textboxes_to_tabular_json_gemini(textboxes: List[Dict[str,Any]], header_foot
     except Exception as e:
          logger.error(f"An unexpected error occurred: {e} when processing list of textboxes.")
          return []        
+
+def textboxes_to_tabular_json_2(textboxes: List[Dict[str,Any]], header_footer_dict: List[Dict], y_tolerance: float = 10.0) -> List[Dict[str, Any]]:
+    """
+        Parses a list of text boxes ordered by their Y1 value and returns an array that simulates a table
+         Parameters:
+             textboxes (List[Dict[str, Any]]):  A list of textboxes, with x and y coordinates.
+        Returns:
+            List[Dict[str, Any]]: An array that simulates a table.
+    """
+    logger = configure_logger("pdf_test_parser.textboxes_to_tabular_json_2")
+    try:
+        if not textboxes:
+            logger.warning("The textboxes list is empty.")
+            return []
+        rows = [] #Store all the row values.
+        current_row = [] #Store current row of textboxes.
+        current_y = None #Store current y value for detecting new rows.
+        tables = []
+        previous_table_title = None
+        current_table = None
+        #for i, textbox in enumerate(textboxes):
+        for textbox in textboxes:
+            x0, y0, x1, y1 = textbox.bbox
+            textbox_content = textbox.get_text()
+            #logger.debug(f"Textbox content: {textbox_content}")
+            #Check current text box to see if it is part of the same table
+            #Check if it is part of the header/footer
+            textbox_content = textbox_content.replace("\n","")
+            if(textbox_content in header_footer_dict['header'] or textbox_content in header_footer_dict['footer']):
+                #logger.debug(f"Textbox contains a header or footer: {textbox_content}")
+                continue
+            current_text_box = get_element_processor(textbox)
+            #Check if it is a page number
+            if(current_text_box.find_page_number(textbox_content)):
+                #logger.debug(f"Textbox contains a page number {textbox_content}")
+                continue
+            
+            #Check for table title/caption
+            table_title_match = re.match(r"^(Table\s+\d+[\s\S]*)", textbox_content, re.IGNORECASE)
+            if(table_title_match):
+                #Check for the string continued ...
+                table_title = table_title_match.group(0).strip()
+                #logger.info(f"Table title: {table_title}")
+                print(f"Table title found: {table_title}")
+                if(not re.search(r'(continued|cont\.{1}?)',table_title.lower(), re.IGNORECASE)):
+                    logger.debug(f'Table title DOES NOT has cont or continued in it: {table_title}')
+                    
+                    #if(table_title != previous_table_title):
+                    current_table = Table(table_title)
+                    previous_table_title = table_title
+                    tables.append(current_table)
+                        #current_table.title = table_title
+                    #create new table
+                    #table = Table(table_title)
+                #else:
+                #    continue #ignore current textbox
+                
+            """ if current_y is None:
+                #Initialize the first y value.
+                current_y = y1
+                current_row.append(textbox)
+            elif abs(y1 - current_y) <= y_tolerance:
+                #If this is on the same row, then add to current row
+                current_row.append(textbox)
+            else:
+                #Not in same row, so process current row, and create new row
+                sorted_row = sorted(current_row, key=lambda tb: tb.bbox[0])
+                row_data = {}
+                for index, tb in enumerate(sorted_row):
+                   row_data[f'Column {index+1}'] = tb.get_text()
+                rows.append(row_data)
+                current_row = [textbox]
+                current_y = y1 # New y-value. """
         
+        #Process the last row
+        """ if current_row:
+            sorted_row = sorted(current_row, key=lambda tb: tb.bbox[0])
+            row_data = {}
+            for index, tb in enumerate(sorted_row):
+                row_data[f'Column {index+1}'] = tb.get_text()
+            rows.append(row_data)
+        logger.info(f'Successfully processed {len(rows)} rows from textboxes.') """
+        return tables
+
+    except Exception as e:
+         logger.error(f"An unexpected error occurred: {e} when processing list of textboxes.")
+         return [] 
+     
+             
 def main():
 
     print('Hello, world from pdf_test_parse main!')
     
+    #import re
+
+   
     """
     # Example usage
     json_path = 'data/output/parsed/AI__json_output_2025-01-13_09-14-42_TEST.json'
@@ -834,7 +926,7 @@ def main():
     else:
         print('This text is not in the header, footer or page number')
         
-    sys.exit(0)
+    #sys.exit(0)
     
     """
      # Extract textboxes from the PDF
@@ -867,19 +959,14 @@ def main():
             wfile.write(f"TextBox: {textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})")
             wfile.write('\n\n')
             
-   
-    #print(all_textboxes)
-        
-    #textbox_guid_tuples = create_textbox_guid_tuples(all_textboxes)
-    #print(textbox_guid_tuples)
-     
+
     sorted_textboxes = extract_table_content(all_textboxes, header_footer_text)
     
-    for st in sorted_textboxes:
+    """ for st in sorted_textboxes:
         print(st)
-        print()
+        print() """
     
-    sys.exit(0)
+    #sys.exit(0)
     
     with open('data/output/RMF_table_sorted_textboxes.txt', 'w') as wfile:
         for textbox in sorted_textboxes:
@@ -889,6 +976,14 @@ def main():
     
     #TODO: Iterate throught the textboxes to produce the JSON output for the tables
     #generate_json_table_output(sorted_textboxes, 'data/output/RMF_table_json_output.json')
+    
+    
+    tables = textboxes_to_tabular_json_2(sorted_textboxes, header_footer_text)
+    
+    for t in tables:
+        print(t.title)
+    
+    sys.exit(0)
     
     rows = textboxes_to_tabular_json_gemini(sorted_textboxes, header_footer_text)
     json_tables = Table("Table title")
@@ -910,16 +1005,7 @@ def main():
 
         if(dll.search(bounding_box)):
             print(f"Found: {guid}")
-         
-    #print(dll.print_list())
-    
-    
-    
-    
-         
-    #'docs/ISO+IEC+23894-2023.pdf
-    
-    
+
     
     # Sort the textboxes
     #sorted_textboxes = sort_textboxes(textboxes)
