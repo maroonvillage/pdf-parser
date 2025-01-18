@@ -1,10 +1,25 @@
 import json
 import re
-
+from typing import List, Dict, Any
 
 class Row:
-    def __init__(self, cells):
+    def __init__(self, cells: Dict[str, Any]):
+        """
+            Initializes a new Row object.
+
+            Parameters:
+                cells (Dict[str, Any]): a dictionary containing the cells.
+        """
         self.cells = cells
+       
+    def to_dict(self) -> Dict[str, Any]:
+        """
+            Returns a dictionary representation of the row.
+
+            Returns:
+              Dict[str,Any]: A dictionary representation of the Row.
+        """
+        return self.cells
         
 class Figure:
     def __init__(self, caption):
@@ -12,19 +27,46 @@ class Figure:
 
 class Table:
     def __init__(self, title):
+        """
+            Initializes a new Table object.
+
+            Parameters:
+                title (str): The table title.
+        """
         self._title = title
         self.rows = []
         
     @property 
-    def title(self): 
+    def title(self) -> str: 
+        """Getter method for table title"""
         return self._title 
     
     @title.setter 
-    def title(self, value): 
+    def title(self, value) -> None:
+        """Setter method for title"""
         self._title
+        
     
     def add_row(self, row):
+        """
+        Adds a row to the table, using the row dictionary.
+
+            Parameters:
+                 row (Dict[str, Any]): The row object containing the data for each cell.
+        """
         self.rows.append(row)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+           Returns a dictionary representation of the table.
+
+           Returns:
+                Dict[str, Any]: A dictionary containing all table data.
+        """
+        return {
+            "title": self._title,
+            "rows": [row.to_dict() for row in self.rows],
+        }      
 
 class Section:
     def __init__(self, heading):
