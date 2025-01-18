@@ -1,5 +1,8 @@
 import json
 import os
+import re
+import sys
+
 from pdfminer.pdfpage import PDFPage
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
@@ -9,8 +12,7 @@ from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import PDFPageAggregator
 from pdfminer.pdftypes import resolve1
-import re
-import sys
+
 
 from sentence_transformers import SentenceTransformer
 from processors.element_processors import *
@@ -22,6 +24,8 @@ from utilities.parse_util import *
 from document import Table
 from doubly_linked_list import DoublyLinkedList
 from bounding_box import BoundingBox
+
+from table_extractor import textboxes_to_tabular_json
 
 def parse_appendices(text):
     lines = text.splitlines()
@@ -871,8 +875,8 @@ def textboxes_to_tabular_json_2(textboxes: List[Dict[str,Any]], header_footer_di
             for index, tb in enumerate(sorted_row):
                 row_data[f'Column {index+1}'] = tb.get_text()
             rows.append(row_data)
-        logger.info(f'Successfully processed {len(rows)} rows from textboxes.') """
-        return tables
+        logger.info(f'Successfully processed {len(rows)} rows from textboxes.')
+        return tables """
 
     except Exception as e:
          logger.error(f"An unexpected error occurred: {e} when processing list of textboxes.")
@@ -978,10 +982,15 @@ def main():
     #generate_json_table_output(sorted_textboxes, 'data/output/RMF_table_json_output.json')
     
     
-    tables = textboxes_to_tabular_json_2(sorted_textboxes, header_footer_text)
+    tables = textboxes_to_tabular_json(sorted_textboxes, header_footer_text)
+    
+    print(tables)
     
     for t in tables:
-        print(t.title)
+        print(f"Title: {t.title}")
+        print()
+        table_dict = t.to_dict()
+        print (f"JSON output: {json.dumps(table_dict, indent=2)}")
     
     sys.exit(0)
     
