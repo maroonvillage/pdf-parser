@@ -7,6 +7,7 @@ from utilities.file_util import generate_filename
 import re
 from pdfminer.layout import LTTextBoxHorizontal
 from pdfminer.high_level import extract_pages
+from logger_config import configure_logger
 
 def extract_html_tables(extract_response: List[Dict], output_dir: str) -> None:
     """
@@ -54,7 +55,6 @@ def extract_html_tables(extract_response: List[Dict], output_dir: str) -> None:
     except Exception as e:
         log.error(f"An unexpected error occurred: {e},  Response: {extract_response}")
         
-
 def html_table_to_json(html_content: str, file_path: str) -> None:
     """
     Parses HTML table content, converts it to JSON, and saves it to a file.
@@ -114,7 +114,6 @@ def html_table_to_json(html_content: str, file_path: str) -> None:
              json.dump(json_data, file, indent=4)
         log.debug(f"Saved html content to: {file_path}")
 
-
 def strip_non_alphanumeric(input_string):
     """
     Strips all non-alphanumeric characters from the input string.
@@ -127,7 +126,13 @@ def strip_non_alphanumeric(input_string):
     """
     return re.sub(r'[^a-zA-Z0-9]', '', input_string)
 
-
+def find_table_pattern(text):
+   """Uses regular expression to find a pattern in text that matches a table.
+   
+        For example: 'Table 1: This is a table' would match the pattern.
+   """
+   return re.match(r'^(Table\s+\d+[\s\S]*)', text, re.IGNORECASE)
+        
 def replace_extra_space(text):
     # Define the regex pattern for the pattern to be replaced
     pattern = r'\s{2,}'
@@ -160,7 +165,6 @@ def strip_non_alphanumeric_end(text):
     result = re.sub(pattern, '', text)
     
     return result
-
 
 def extract_table_data_from_json(json_data: List[Dict]) -> List[Dict[str, Any]]:
     """
@@ -268,7 +272,7 @@ def extract_table_data_from_json2(json_data: List[Dict]) -> List[Dict[str, Any]]
             return []
       for element in json_data:
            if element["type"] == "NarrativeText":
-            match = re.match(r"^(Table\s+\d+[\s\S]*)", element["text"], re.IGNORECASE)
+            match =  find_table_pattern(element["text"])
             if match:
                 table_title = match.group(0).strip()
                 #print(table_title)
@@ -356,7 +360,6 @@ def extract_table_data_from_json2(json_data: List[Dict]) -> List[Dict[str, Any]]
        log.error(f"An unexpected error occurred: {e} when processing table data from the JSON.")
        return []
       
-
 def are_textboxes_tabular(bbox1: Tuple[float, float, float, float], bbox2: Tuple[float, float, float, float], y_tolerance: float = 10.0, x_tolerance: float = 20.0 ) -> bool:
     """
     Determines if two text boxes, defined by their bounding boxes, are arranged in a tabular format.
@@ -400,46 +403,6 @@ def are_textboxes_tabular(bbox1: Tuple[float, float, float, float], bbox2: Tuple
         log.error(f"An error occurred while checking for tabular layout: {e}. Bounding Box 1: {bbox1}. Bounding Box 2: {bbox2}")
         return False
     
-def get_table_pages_from_unstructured_json(json_data: List[Dict]) -> List[int]:
-    """
-    Extracts the page numbers of tables from the JSON data.
-
-    Parameters:
-        json_data (List[Dict]): The JSON data containing table information.
-
-    Returns:
-        List[int]: A list of page numbers where tables are found.
-    """
-    log = logging.getLogger(__name__)
-    table_data_list = []
-    table_titles = {} #Stores all the titles keyed by element_id
-    current_table = None
-    try:
-      if not json_data:
-            log.warning("The json data is empty.")
-            return []
-      for element in json_data:
-           if element["type"] == "NarrativeText":
-            match = re.match(r"^(Table\s+\d+[\s\S]*)", element["text"], re.IGNORECASE)
-            if match:
-                table_title = match.group(0).strip()
-                title = {
-                    "title": table_title,
-                    "element_id": element["element_id"],
-                    "page_number": element["metadata"].get("page_number", None)
-                }
-                #table_titles[element["metadata"]["parent_id"]] = title
-                table_data_list.append(title)
-                #TEMPORARY
-      
-      return table_data_list
-    except KeyError as e:
-        log.error(f"KeyError: {e} in JSON data")
-        return []
-    except Exception as e:
-        log.error(f"An unexpected error occurred: {e} when processing table pages from the JSON.")
-        return []  
-
 def find_page_number(text):
 
     page_no_pattern = r"(?:Page|page|pg)\s(?:\d+|[ivx])+"
