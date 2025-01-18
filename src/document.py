@@ -12,9 +12,17 @@ class Figure:
 
 class Table:
     def __init__(self, title):
-        self.title = title
+        self._title = title
         self.rows = []
         
+    @property 
+    def title(self): 
+        return self._title 
+    
+    @title.setter 
+    def title(self, value): 
+        self._title
+    
     def add_row(self, row):
         self.rows.append(row)
 
