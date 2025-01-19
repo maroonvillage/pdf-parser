@@ -66,7 +66,10 @@ class Table:
         return {
             "title": self._title,
             "rows": [row.to_dict() for row in self.rows],
-        }      
+        }
+        
+    def to_json(self):
+        return json.dumps(self.to_dict(), indent=4)      
 
 class Section:
     def __init__(self, heading):
