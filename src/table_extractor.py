@@ -32,7 +32,7 @@ def textboxes_to_tabular_json(textboxes: List[Dict[str,Any]], header_footer_dict
             #textbox_content = current_text_box.get_text(textbox)
             textbox_content = textbox.get_text()
             
-            #Check if it is part of the header/footer
+            #Check if it is part of the headßer/footer
             textbox_content = textbox_content.replace("\n","").strip()
             if(textbox_content in header_footer_dict['header'] or textbox_content in header_footer_dict['footer']):
                 #logger.debug(f"Textbox contains a header or footer: {textbox_content}")
@@ -50,7 +50,7 @@ def textboxes_to_tabular_json(textboxes: List[Dict[str,Any]], header_footer_dict
                 #logger.info(f"Table title: {table_title}")
                 #print(f"Table title found: {table_title}")
                 if(not re.search(r'(continued|cont\.{1}?)',table_title.lower(), re.IGNORECASE)):
-                    logger.debug(f'Table title DOES NOT has cont or continued in it: {table_title}')
+                    #logger.debug(f'Table title DOES NOT has cont or continued in it: {table_title}')
                     
                     #if(table_title != previous_table_title):
                     if current_table:
