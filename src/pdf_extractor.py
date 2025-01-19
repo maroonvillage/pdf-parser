@@ -31,6 +31,8 @@ from data.graph_db import GraphDB
 
 from processors.element_processors import *
 
+from table_extractor import textboxes_to_tabular_json, extract_table_content, get_table_pages
+
 class EmptyPathError(Exception):
     """Exception raised for empty output path."""
     pass
@@ -348,7 +350,6 @@ def main():
         
    
     try:
-        
             #Begin by parsing the PDF document 
             
             #Extract Table of Contents ...
@@ -365,27 +366,64 @@ def main():
             
             logger.info(f'PDF text has been sucessfully converted to JSON {json_output_path}.')
             
-            sys.exit(0) #TEMPORARY - REMOVE LATER
 
-            #Once a call to the Unstructured API is made, the response is saved to a file.  
-            # This precludes the need to make repeated calls to the API.
-            dowloads_folder = f'{output_folder}/downloads/api_responses'
-            modified_pdf_filename = strip_non_alphanumeric(pdf_file_name.replace(".pdf",""))
-            unstructured_json_file = os.path.join(dowloads_folder, f'{modified_pdf_filename}_unstructured_response.json')
-            if os.path.exists(unstructured_json_file):
-                logger.info(f'Unstructured JSON response file exists: {unstructured_json_file}. Reading from file.')
-                extract_response = read_json_file(unstructured_json_file)
+            unstructured_api_key = os.environ.get("UNSTRUCTURED_API_KEY")
+            if(unstructured_api_key):
+                #Once a call to the Unstructured API is made, the response is saved to a file.  
+                # This precludes the need to make repeated calls to the API.
+                dowloads_folder = f'{output_folder}/downloads/api_responses'
+                modified_pdf_filename = strip_non_alphanumeric(pdf_file_name.replace(".pdf",""))
+                unstructured_json_file = os.path.join(dowloads_folder, f'{modified_pdf_filename}_unstructured_response.json')
+                if os.path.exists(unstructured_json_file):
+                    logger.info(f'Unstructured JSON response file exists: {unstructured_json_file}. Reading from file.')
+                    extract_response = read_json_file(unstructured_json_file)
+                else:
+                    logger.info(f'Unstructured JSON response file does not exist: {unstructured_json_file}. Making call to Unstructured API.')
+                    extract_response = call_unstructured(pdf_path)
+                    save_file(unstructured_json_file, json.dumps(extract_response, indent=4))  # Save the response to a file
+                    
+                #Extract tables from the response of the Unstructured API and save to JSON file.
+                extracted_data = extract_table_data_from_json2(extract_response)
+                #Save extracted data to JSON file
+                save_json_file(extracted_data, json_table_output_path)
             else:
-                logger.info(f'Unstructured JSON response file does not exist: {unstructured_json_file}. Making call to Unstructured API.')
-                extract_response = call_unstructured(pdf_path)
-                save_file(unstructured_json_file, json.dumps(extract_response, indent=4))  # Save the response to a file
-            
+                logger.debug("Unstructured API Key is not available!")
+                #Get pages that contain tables
+                results = get_table_pages(pdf_path)
+                all_textboxes = []
+                for result in results:
+                    page_id = result['page_number']
+                    textboxes = extract_textboxes_by_pageid(pdf_path, page_id)
+                    all_textboxes.extend(textboxes)
+                
+                #Save table textboxes to file ...
+                
+                file_name = generate_filename(f'{pdf_prefix}_table_textboxes')
+                table_textbox_path = os.path.join(output_folder, file_name)
+                with open(table_textbox_path, 'w') as wfile:
+                    for textbox in all_textboxes:
+                        wfile.write(f"TextBox: {textbox.get_text()} -> ({textbox.x0}, {textbox.y0}) ({textbox.x1}, {textbox.y1})")
+                        wfile.write('\n\n')
+                        
+                sorted_textboxes = extract_table_content(all_textboxes, header_footer_dict)
+                
+                tables_data = textboxes_to_tabular_json(sorted_textboxes, header_footer_dict)
+                
+                #print(tables_data)
+                
+                write_list_of_table_objects_to_json_file2(tables_data, json_table_output_path)
+                #save_file(json_table_output_path, json.dumps(tables_data, indent=2))
+                #Write to a JSON file ...
+                # for table in tables_data:
+                #     print(table.to_json())
+                #     print()
+                    #save_file(json_table_output_path, table.to_json())
+                    
+                #save_file(f"data/output/parsed/{file_name}_TEST.json", pdf_parse_document.to_json())    
+                #print()
             
 
-            #Extract tables from the response of the Unstructured API and save to JSON file.
-            extracted_data = extract_table_data_from_json2(extract_response)
-            
-            save_json_file(extracted_data, json_table_output_path)
+            sys.exit(0) #TEMPORARY - REMOVE LATER
 
             #loaded_pdf_json_doc = load_document_from_json(json_output_path)
 
@@ -398,7 +436,6 @@ def main():
             pinecond_db = PineConeVectorDB(pinecone_api_key,pdf_prefix)
             print(pinecond_db.index_name)
             pinecond_db.add_embeddings_to_pinecone_index(embeddings)
-            
             
 
             #Iterate through nodes of Graph DB to query vector db
