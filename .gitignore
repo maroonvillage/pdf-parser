@@ -165,6 +165,7 @@ docs/*.txt
 docs/*.pdf
 data/prompts/*.*
 data/output/*.*
+data/output/generated/*.*
 data/output/parsed/*.*
 data/output/query_results/*.*
 data/output/downloads/*.*
