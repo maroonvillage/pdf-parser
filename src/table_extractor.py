@@ -15,7 +15,7 @@ def textboxes_to_tabular_json(textboxes: List[Dict[str,Any]], header_footer_dict
         Returns:
             List[Table]: An list of Table objects
     """
-    logger = configure_logger(__name__)
+    logger = configure_logger(f"{__name__}.textboxes_to_tabular_json")
     try:
         if not textboxes:
             logger.warning("The textboxes list is empty.")
@@ -48,7 +48,7 @@ def textboxes_to_tabular_json(textboxes: List[Dict[str,Any]], header_footer_dict
                 #Check for the string continued ...
                 table_title = table_title_match.group(0).strip()
                 #logger.info(f"Table title: {table_title}")
-                print(f"Table title found: {table_title}")
+                #print(f"Table title found: {table_title}")
                 if(not re.search(r'(continued|cont\.{1}?)',table_title.lower(), re.IGNORECASE)):
                     logger.debug(f'Table title DOES NOT has cont or continued in it: {table_title}')
                     
@@ -67,7 +67,7 @@ def textboxes_to_tabular_json(textboxes: List[Dict[str,Any]], header_footer_dict
                     previous_table_title = table_title
                     tables.append(current_table)
                 else:
-                    logger.debug(f'Table title HAS cont or continued in it: {table_title}')
+                    #logger.debug(f'Table title HAS cont or continued in it: {table_title}')
                     if current_table and current_row:
                        sorted_row = sorted(current_row, key=lambda tb: tb.bbox[0])
                        row_data = {}
@@ -126,13 +126,13 @@ def get_table_pages_from_unstructured_json(json_data: List[Dict]) -> List[int]:
     Returns:
         List[int]: A list of page numbers where tables are found.
     """
-    log = logging.getLogger(__name__)
+    logger = configure_logger(f"{__name__}.get_table_pages_from_unstructured_json")
     table_data_list = []
     table_titles = {} #Stores all the titles keyed by element_id
     current_table = None
     try:
       if not json_data:
-            log.warning("The json data is empty.")
+            logger.warning("The json data is empty.")
             return []
       for element in json_data:
            if element["type"] == "NarrativeText":
@@ -150,10 +150,10 @@ def get_table_pages_from_unstructured_json(json_data: List[Dict]) -> List[int]:
       
       return table_data_list
     except KeyError as e:
-        log.error(f"KeyError: {e} in JSON data")
+        logger.error(f"KeyError: {e} in JSON data")
         return []
     except Exception as e:
-        log.error(f"An unexpected error occurred: {e} when processing table pages from the JSON.")
+        logger.error(f"An unexpected error occurred: {e} when processing table pages from the JSON.")
         return []  
 
 def get_table_pages(pdf_path)-> List[int]:
@@ -181,3 +181,43 @@ def get_table_pages(pdf_path)-> List[int]:
         return []
     
     return table_page_list
+
+def extract_table_content(textboxes, header_footer_dict) -> List[Dict]:
+    logger = configure_logger(f"{__name__}.extract_table_content")
+
+    found_table = False
+    table_title = None
+    table_textboxes = []
+    
+    for textbox in textboxes:
+        current_text_box = get_element_processor(textbox)
+        text_box_text = textbox.get_text()
+        if found_table:
+
+                
+            #Check current text box to see if it is part of the same table
+            #Check if it is part of the header/footer
+            #text_box_text = text_box_text.replace("\n", "")
+            if(text_box_text in header_footer_dict['header'] or text_box_text in header_footer_dict['footer']):
+                logger.debug(f"a header or footer: {text_box_text}")
+                continue
+            #Check if it is a page number
+            if(current_text_box.find_page_number(text_box_text)):
+                logger.debug(f"a page number {text_box_text}")
+                continue
+            
+           
+            
+        match = find_table_pattern(text_box_text)
+        if match:
+            table_title = match.group(0).strip()
+            if(not re.match(r"(continued|cont\.{1}?)", table_title, re.IGNORECASE)):
+                table_textboxes.append(textbox)
+                logger.debug(f"Found table title: {table_title}")
+                found_table = True
+        else:
+            table_textboxes.append(textbox)
+             
+    #table_textboxes.sort(key=lambda x: (-x.y0, x.x0))
+    return table_textboxes
+            
