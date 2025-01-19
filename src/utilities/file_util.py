@@ -7,6 +7,7 @@ from logger_config import configure_logger
 from typing import Dict, Any
 logging.basicConfig(level=logging.INFO)
 from document import Document
+from typing import List, Dict, Any
 
 def check_for_file(file_path):
 
@@ -46,7 +47,7 @@ def read_lines_into_list(file_path):
 def write_document_loader_docs_to_file(docs, file_path):
     
 
-        # Open a file in write mode
+    # Open a file in write mode
     with open(file_path, 'w') as file:
         for page in docs:
             # Write some text to the file
@@ -65,28 +66,87 @@ def save_file(file_path: str, text: Any) -> None:
     Returns:
         None
     """
-    log = logging.getLogger(__name__)
+    logger = configure_logger(f"{__name__}.save_file")
     try:
-        with open(file_path, 'w', encoding='utf-8') as file:
+        with open(file_path, 'a', encoding='utf-8') as file:
             if isinstance(text, str):
                 file.write(text)
             else:
                 file.write(str(text))
-            log.info(f"Successfully written data to file: {file_path}")
+            logger.info(f"Successfully written data to file: {file_path}")
     except FileNotFoundError:
-        log.error(f"File not found: {file_path}")
+        logger.error(f"File not found: {file_path}")
     except PermissionError as e:
-        log.error(f"Permission error: {e} when saving to file: {file_path}")
+        logger.error(f"Permission error: {e} when saving to file: {file_path}")
     except Exception as e:
-         log.error(f"An unexpected error occurred: {e} when saving to file: {file_path}")
+         logger.error(f"An unexpected error occurred: {e} when saving to file: {file_path}")
 
 
 def save_json_file(data, output_file):
     """Save processed data to a JSON file."""
-    with open(output_file, 'w', encoding='utf-8') as file:
+    with open(output_file, 'a', encoding='utf-8') as file:
         json.dump(data, file, ensure_ascii=False, indent=2)
         #file.write(data)
 
+def write_list_of_table_objects_to_json_file(table_objects: List[Dict[str, Any]], file_path: str) -> None:
+    """
+    Writes a list of table objects (dictionaries with 'title' and 'rows' keys) to a JSON file.
+
+    Parameters:
+        table_objects (List[Dict[str, Any]]): The list of table objects.
+        file_path (str): The path to the JSON output file.
+    """
+    log = logging.getLogger(f'{__name__}.write_list_of_table_objects_to_json_file')
+    try:
+        if not table_objects:
+            log.warning("The table object list is empty. Nothing to write.")
+            return
+        with open(file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(table_objects, json_file, indent=4)
+        log.info(f"Successfully wrote a list of table objects to file: {file_path}")
+    except FileNotFoundError as e:
+        log.error(f"FileNotFoundError: {e} when saving file: {file_path}")
+    except TypeError as e:
+          log.error(f"TypeError: {e} when processing the table objects. File path: {file_path}. List of table objects {table_objects}")
+    except Exception as e:
+         log.error(f"An unexpected error occurred: {e} when writing to JSON file: {file_path}. Table Objects: {table_objects}")
+         
+
+def write_list_of_table_objects_to_json_file2(table_objects: List[Any], file_path: str) -> None:
+    """
+    Writes a list of table objects (with a to_dict method) to a JSON file.
+
+    Parameters:
+        table_objects (List[Any]): The list of table objects, which may be dictionaries or custom objects.
+        file_path (str): The path to the JSON output file.
+    """
+    log = logging.getLogger(__name__)
+    try:
+        if not table_objects:
+            log.warning("The table object list is empty. Nothing to write.")
+            return
+        
+        serialized_data = []
+        for table in table_objects:
+            if hasattr(table, 'to_dict'):
+                 serialized_data.append(table.to_dict()) # Use to_dict() if available
+            elif isinstance(table,dict):
+                 serialized_data.append(table) # If it is a dictionary, then just append it to the serialized_data.
+            else:
+                  log.warning(f'Unsupported object type: {type(table)}')
+                  continue
+        with open(file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(serialized_data, json_file, indent=4)
+        log.info(f"Successfully wrote a list of table objects to file: {file_path}")
+    except FileNotFoundError as e:
+        log.error(f"FileNotFoundError: {e} when saving file: {file_path}")
+    except TypeError as e:
+          log.error(f"TypeError: {e} when processing the table objects. File path: {file_path}. List of table objects {table_objects}")
+    except Exception as e:
+         log.error(f"An unexpected error occurred: {e} when writing to JSON file: {file_path}. Table Objects: {table_objects}")
+
+
+         
 def generate_filename(base_name, extension="txt"):
     # Get the current date and time
     now = datetime.now()
