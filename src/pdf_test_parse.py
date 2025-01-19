@@ -888,8 +888,10 @@ def main():
     print('Hello, world from pdf_test_parse main!')
     
     #import re
-
-   
+    api_key = os.environ.get("UNSTRUCTURED_API_KEY")
+    if(api_key == None):
+        print("Api key is empty!")
+    sys.exit(0)
     """
     # Example usage
     json_path = 'data/output/parsed/AI__json_output_2025-01-13_09-14-42_TEST.json'
