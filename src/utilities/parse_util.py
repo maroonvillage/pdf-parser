@@ -439,3 +439,16 @@ def get_header_footer_text(pdf_path,top_margin=20, bottom_margin=20) -> str:
                         page_element_text["footer"] += f"{element_text} "
                                   
     return page_element_text
+
+def extract_textboxes_by_pageid(pdf_path, page_id):
+    textboxes = []
+    
+    for page_layout in extract_pages(pdf_path):
+        
+        if(page_layout.pageid == page_id):
+            for element in page_layout:
+                if isinstance(element, LTTextBoxHorizontal):
+                    textboxes.append(element)
+    
+    textboxes.sort(key=lambda x: (-x.y1, x.x1))
+    return textboxes
