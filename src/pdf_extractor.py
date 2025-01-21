@@ -360,7 +360,7 @@ def main():
             
             logger.info(f'Table for contents of document {pdf_path} sucessfully extracted.')
             
-            header_footer_dict = get_header_footer_text(pdf_path)
+            header_footer_dict = get_header_footer_text(pdf_path,top_margin=50)
             
             convert_pdf_to_json(pdf_path,pdfminer_txt_path,json_output_path,lines_list,nlp,header_footer_dict)
             
@@ -423,7 +423,7 @@ def main():
                 #print()
             
 
-            sys.exit(0) #TEMPORARY - REMOVE LATER
+            #sys.exit(0) #TEMPORARY - REMOVE LATER
 
             #loaded_pdf_json_doc = load_document_from_json(json_output_path)
 
@@ -433,7 +433,11 @@ def main():
             embeddings = generate_embeddings(sections)
                 
             pinecone_api_key=os.environ.get("PINECONE_API_KEY")
-            pinecond_db = PineConeVectorDB(pinecone_api_key,pdf_prefix)
+            
+            strip_file_name = strip_non_alphanumeric(pdf_file_name)
+            print(f'stripped file name: {strip_file_name}')
+            #sys.exit(0)
+            pinecond_db = PineConeVectorDB(pinecone_api_key,strip_file_name)
             print(pinecond_db.index_name)
             pinecond_db.add_embeddings_to_pinecone_index(embeddings)
             
