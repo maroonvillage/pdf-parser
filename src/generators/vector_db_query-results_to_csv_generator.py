@@ -36,7 +36,8 @@ def json_to_csv_with_max_score(json_data: Dict[str, Any], output_file_path: str,
                    
                     content = section.get('content',"")
                     score = section.get("score", 0)
-                    if score > max_score:
+                    score = score * 100
+                    if score > max_score and score <= 100:
                         max_score = score
                         best_content = content
                 
