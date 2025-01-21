@@ -33,11 +33,11 @@ class PineConeVectorDB:
         """
         self._api_key = api_key
          # Get the current date and time
-        now = datetime.now()
+        #now = datetime.now()
         # Format the date and time as a string (e.g., '2023-04-06_14-30-00')
-        timestamp = now.strftime("%Y%m%d%H%M%S")
+        #timestamp = now.strftime("%Y%m%d%H%M%S")
 
-        self._index_name = f"{prefix.replace('_','').lower()}{timestamp}"
+        self._index_name = f"{prefix.lower()}-index"
         self._index = None
         self._pineconedb = Pinecone(api_key=self._api_key)
         self._model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
@@ -99,16 +99,17 @@ class PineConeVectorDB:
 
        try:
             pc = Pinecone(api_key=self.api_key)
-            #index_list = pc.list_indexes() #Call the method, and store the result in a variable
             
-            #self._log.debug(f"Existing indexes: {index_list}")
-            #if self.index_name not in index_list.names: #Access the names attribute using the `index_list` object
+            index_list = pc.list_indexes() #Call the method, and store the result in a variable
+            
+            self._log.debug(f"Existing indexes: {index_list}")
+            if self.index_name not in index_list.names(): #Access the names attribute using the `index_list` object
             #if pc.has_index(self.index_name) == False:
-            self._index = _create_pinecone_index(pc, self._log, self.index_name, dim, metric, cloud, region)
+                self._index = _create_pinecone_index(pc, self._log, self.index_name, dim, metric, cloud, region)
             #if self.index_name not in self._pineconedb.list_indexes().names:
             #    self._index = _create_pinecone_index(self._pineconedb, self._log, self.index_name, dim, metric, cloud, region)
-            #else:
-            self._log.info(f"Index {self.index_name} already exists, using existing index.")
+            else:
+                self._log.info(f"Index {self.index_name} already exists, using existing index.")
                 
                 # Connect to the index
             self._index = self._pineconedb.Index(self.index_name)
