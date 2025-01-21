@@ -1,13 +1,13 @@
 import json 
 import logging
 import os
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Tuple
 from bs4 import BeautifulSoup
-from utilities.file_util import generate_filename
+from .file_util import generate_filename
 import re
 from pdfminer.layout import LTTextBoxHorizontal
 from pdfminer.high_level import extract_pages
-from logger_config import configure_logger
+#from ..logger_config import configure_logger
 
 def extract_html_tables(extract_response: List[Dict], output_dir: str) -> None:
     """
@@ -157,6 +157,7 @@ def strip_characters(text, patterns):
         text = re.sub(pattern, ' ', text)
     return text
 
+    
 def strip_non_alphanumeric_end(text):
     # Define the regex pattern to match non-alphanumeric characters at the end of the string
     pattern = r'[\W_]+$'
