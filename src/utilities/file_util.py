@@ -2,11 +2,11 @@ import os
 import json
 from datetime import datetime
 import logging
-from logger_config import configure_logger
+from src.logger_config import configure_logger
 
 from typing import Dict, Any
 logging.basicConfig(level=logging.INFO)
-from document import Document
+from src.document import Document
 from typing import List, Dict, Any
 
 def check_for_file(file_path):
@@ -156,42 +156,6 @@ def generate_filename(base_name, extension="txt"):
     filename = f"{base_name}_{timestamp}.{extension}"
     return filename
 
-
-def download_file_from_container(container_name, container_directory, local_directory):
-
-    # Connect to the Docker client
-    client = docker.from_env()
-
-    # Name or ID of your Docker container
-    #container_name = "your_container_name"
-
-    # Directory in the Docker container containing the JSON files
-    #container_directory = "/path/to/json/files"
-
-    # Local directory to save the downloaded JSON files
-    #local_directory = "./downloaded_json_files"
-
-    # Create the local directory if it doesn't exist
-    os.makedirs(local_directory, exist_ok=True)
-
-    # Get the container
-    container = client.containers.get(container_name)
-
-    # List JSON files in the container directory
-    json_files = container.exec_run(f"ls {container_directory}").output.decode().splitlines()
-
-    # Download each JSON file
-    for json_file in json_files:
-        container_path = os.path.join(container_directory, json_file)
-        local_path = os.path.join(local_directory, json_file)
-        
-        # Copy the file from the container to the local directory
-        with open(local_path, "wb") as f:
-            bits, stat = container.get_archive(container_path)
-            for chunk in bits:
-                f.write(chunk)
-
-    print("JSON files downloaded successfully!")
 
 def get_files_from_dir(directory,extension='.json'):
 
