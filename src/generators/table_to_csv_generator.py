@@ -5,6 +5,7 @@ import logging
 import os
 import re
 from typing import Dict, Any, List
+#from utilities.parse_util import *
 
 def json_to_csv_table_layout(json_data: Dict[str, Any], output_file_path: str) -> None:
     """
@@ -65,6 +66,7 @@ def json_to_csv_table_layout2(json_data: List[Dict], output_file_path: str) -> N
             writer = csv.writer(csvfile)
             for table in json_data:
                   title = table.get("title", "")
+                  #tbl_match = find_table_pattern(title)
                   if not re.match(r"^Table\s+\d+[\s\S]*", title, re.IGNORECASE):
                     log.debug(f'skipping non-table title: {title}')
                     continue #Skips if the title does not match table pattern
@@ -103,17 +105,17 @@ if __name__ == '__main__':
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
     # Combine the base name, timestamp, and extension to form the file name
     output_file = f"table_json_to_csv_{timestamp}.csv"
+    #output_file = 'AI__json_table_output_2025-01-21_08-46-02.json'
     
-    
-    json_folder = "data/output/parsed"
-    full_output_path = os.path.join("data/output/parsed", output_file)
+    json_parsed_folder = "data/output/parsed"
+    full_output_path = os.path.join("data/output/generated", output_file)
     
     first_file = True
     try:
        
-        for filename in os.listdir(json_folder):
+        for filename in os.listdir(json_parsed_folder):
             if "json_table_output" in filename and filename.endswith(".json"):
-                 json_file_path = os.path.join(json_folder, filename)
+                 json_file_path = os.path.join(json_parsed_folder, filename)
                  log.info(f"Processing file: {json_file_path}")
                  json_data = {}
                  try:
@@ -128,6 +130,6 @@ if __name__ == '__main__':
                  except Exception as e:
                      log.error(f"An unexpected error occurred: {e} when processing file: {json_file_path}. Error: {e}")
     except FileNotFoundError as e:
-         log.error(f"FileNotFoundError: {e} when listing files in folder: {json_folder}. Error: {e}")
+         log.error(f"FileNotFoundError: {e} when listing files in folder: {json_parsed_folder}. Error: {e}")
     except Exception as e:
-        log.error(f"An unexpected error occurred: {e} when processing files in folder: {json_folder}. Error: {e}")
+        log.error(f"An unexpected error occurred: {e} when processing files in folder: {json_parsed_folder}. Error: {e}")
