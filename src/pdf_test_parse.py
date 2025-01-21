@@ -2,7 +2,7 @@ import json
 import os
 import re
 import sys
-
+from pinecone import Pinecone, ServerlessSpec
 from pdfminer.pdfpage import PDFPage
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import LAParams, LTTextBoxHorizontal, LTTextLineHorizontal, LTChar, \
@@ -886,12 +886,31 @@ def textboxes_to_tabular_json_2(textboxes: List[Dict[str,Any]], header_footer_di
 def main():
 
     print('Hello, world from pdf_test_parse main!')
-    
-    #import re
-    api_key = os.environ.get("UNSTRUCTURED_API_KEY")
-    if(api_key == None):
-        print("Api key is empty!")
+    try:
+        #pc = Pinecone(api_key='13707c0e-f5d1-4eaa-8c72-4988914c1de3')
+        # Initialize the Pinecone client 
+        #pinecone.init(api_key='13707c0e-f5d1-4eaa-8c72-4988914c1de3')
+        pc = Pinecone(
+        '13707c0e-f5d1-4eaa-8c72-4988914c1de3'
+        )
+        index_name = 'airiskmanagementnistai1001pdf-index'
+        index_list = pc.list_indexes() #Call the method, and store the result in a variable
+        print(index_list)    
+        
+        #sys.exit(0)
+        #self._log.debug(f"Existing indexes: {index_list}")
+        if index_name not in index_list.names(): #Access the names attribute using the `index_list` object
+           print("Creating a new index ....")
+        else:
+            print(f'Index {index_name} already exists!')
+           
+
+    except Exception as e:
+                #self._log.error(f"An error occurred when creating or upserting to Pinecone Index: {self.index_name}. Error: {e}")
+                raise
     sys.exit(0)
+    
+    
     """
     # Example usage
     json_path = 'data/output/parsed/AI__json_output_2025-01-13_09-14-42_TEST.json'
@@ -900,7 +919,7 @@ def main():
 
     #print(json_data['pages'])
     
-    #sys.exit(0)
+    
     
     table_title, table_textboxes = extract_table_content_copilotgenerated(json_data['pages'])
 
@@ -910,7 +929,7 @@ def main():
     
     sys.exit(0)
     """
-    pdf_path = 'docs/AI_Risk_Management-NIST.AI.100-1.pdf'
+   
     header_footer_text = get_header_footer_text(pdf_path,top_margin=50, bottom_margin=50)
     
     #print (header_footer_text)
