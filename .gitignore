@@ -164,3 +164,8 @@ cython_debug/
 docs/*.txt
 docs/*.pdf
 data/output/*.*
+data/output/downloads/*
+data/output/generated/*
+data/output/parsed/*
+data/output/query_results/*
+data/prompts/*.*
