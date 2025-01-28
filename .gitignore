@@ -163,9 +163,15 @@ cython_debug/
 .DS_Store
 docs/*.txt
 docs/*.pdf
+data/prompts/*.*
 data/output/*.*
 data/output/downloads/*
 data/output/generated/*
 data/output/parsed/*
 data/output/query_results/*
 data/prompts/*.*
+data/output/generated/*.*
+data/output/parsed/*.*
+data/output/query_results/*.*
+data/output/downloads/*.*
+data/output/snapshots/*.*
